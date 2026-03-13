@@ -10,9 +10,15 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // ═══════════════════════════════════════════════════════════════════════════════
 const WORKER_URL = "https://lifeos-api.sarpreet5601.workers.dev";
 
+function getToken() { return sessionStorage.getItem("lifeos_token") || ""; }
+
 async function api(path, options = {}) {
   const res = await fetch(`${WORKER_URL}${path}`, {
-    headers: { "Content-Type": "application/json", ...options.headers },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${getToken()}`,
+      ...options.headers,
+    },
     ...options,
   });
   if (!res.ok) {
@@ -1171,7 +1177,70 @@ const NAV = [
   { id:"goals",   icon:"🎯", label:"Goals",   built:false },
 ];
 
+function LoginScreen({ onLogin }) {
+  const [pw, setPw]     = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
+
+  const login = async () => {
+    if (!pw.trim()) return;
+    setLoading(true); setError("");
+    try {
+      const res = await fetch(`${WORKER_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: pw }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError("Wrong password. Try again."); setLoading(false); return; }
+      sessionStorage.setItem("lifeos_token", data.token);
+      onLogin();
+    } catch { setError("Could not reach server. Check Worker URL."); }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{
+      height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",
+      background:"var(--bg)",flexDirection:"column",gap:16,padding:24,
+    }}>
+      <div style={{fontSize:32,fontWeight:800,fontFamily:"var(--font)",letterSpacing:-1}}>
+        Life<span style={{color:"var(--a)"}}>OS</span>
+      </div>
+      <div style={{fontSize:13,color:"var(--m2)",marginBottom:8}}>Enter your password to continue</div>
+      <input
+        type="password"
+        placeholder="Password"
+        value={pw}
+        onChange={e => setPw(e.target.value)}
+        onKeyDown={e => e.key === "Enter" && login()}
+        style={{
+          width:"100%",maxWidth:300,padding:"11px 14px",
+          background:"var(--bg2)",border:"1px solid var(--b)",
+          borderRadius:9,color:"var(--t)",fontFamily:"var(--font)",
+          fontSize:14,outline:"none",
+        }}
+        autoFocus
+      />
+      {error && <div style={{color:"var(--warn)",fontSize:12}}>{error}</div>}
+      <button
+        onClick={login}
+        disabled={loading || !pw.trim()}
+        style={{
+          width:"100%",maxWidth:300,padding:"11px 14px",
+          background:"var(--a)",border:"none",borderRadius:9,
+          color:"#05050E",fontFamily:"var(--font)",fontSize:14,
+          fontWeight:700,cursor:"pointer",opacity:loading?0.6:1,
+        }}
+      >
+        {loading ? "Checking…" : "Unlock"}
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
+  const [authed, setAuthed] = useState(!!sessionStorage.getItem("lifeos_token"));
   const [tab, setTab]           = useState("home");
   const [configOpen, setConfigOpen] = useState(false);
   // Worker URL stored in sessionStorage only — user enters it each session or we detect it
@@ -1207,9 +1276,10 @@ export default function App() {
   };
 
   return (
-    <>
+   <>
       <style>{CSS}</style>
-      <div className="app">
+      {!authed && <LoginScreen onLogin={() => setAuthed(true)} />}
+      {authed && <div className="app">
         <div className="sb">
           <div className="logo">Life<em>OS</em></div>
           <div className="ns">Modules</div>
@@ -1265,6 +1335,7 @@ export default function App() {
       </div>
 
       {configOpen && <ConfigModal onClose={() => setConfigOpen(false)} onSave={saveWorkerUrl} current={workerUrl}/>}
+  }
     </>
   );
 }
