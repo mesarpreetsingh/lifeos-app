@@ -1197,7 +1197,6 @@ function SettingsTab({ onReset, lightMode, toggleLight }) {
   const [sessionTimeout, setSessionTimeout] = useState(
     localStorage.getItem("lifeos_timeout") || "5"
   );
-  const [darkMode]                    = useState(true); // always dark for now
   const [notifEnabled, setNotifEnabled] = useState(
     localStorage.getItem("lifeos_notif") === "true"
   );
@@ -1587,6 +1586,8 @@ export default function App() {
   const [workerOk, setWorkerOk] = useState(null);
   const [streak, setStreak]     = useState({count:0,message:""});
   const [weekPlan, setWeekPlan] = useState(null);
+  const [lightMode, setLightMode] = useState(localStorage.getItem("lifeos_light")==="true");
+  const toggleLight = () => { const n=!lightMode; setLightMode(n); localStorage.setItem("lifeos_light",String(n)); };
 
   // Inactivity lock
   useEffect(()=>{
