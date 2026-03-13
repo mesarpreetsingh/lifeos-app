@@ -26,7 +26,14 @@ async function api(path, options = {}) {
   return res.json();
 }
 
-const todayStr  = () => new Date().toISOString().slice(0, 10);
+// Use LOCAL date — not UTC. UTC flips to tomorrow after ~4pm Pacific time.
+const todayStr = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 const weekStart = (dateStr) => {
   const d = new Date(dateStr);
   const day = d.getDay();
@@ -34,16 +41,24 @@ const weekStart = (dateStr) => {
   return d.toISOString().slice(0, 10);
 };
 function dayDate(weekStartStr, dayName) {
+  // Handles both abbreviated ("Mon") and full ("Monday") day names from AI
+  const normalize = n => n ? n.slice(0,3) : "";
   const OFF = { Mon:0, Tue:1, Wed:2, Thu:3, Fri:4, Sat:5, Sun:6 };
+  const key = normalize(dayName);
   const d = new Date(weekStartStr + "T12:00:00");
-  d.setDate(d.getDate() + (OFF[dayName] ?? 0));
+  d.setDate(d.getDate() + (OFF[key] ?? 0));
   return d;
 }
 function dayDateLabel(weekStartStr, dayName) {
   return dayDate(weekStartStr, dayName).toLocaleDateString("en-US", { weekday:"short", month:"short", day:"numeric" });
 }
 function isTodayDay(weekStartStr, dayName) {
-  return dayDate(weekStartStr, dayName).toISOString().slice(0,10) === todayStr();
+  const d = dayDate(weekStartStr, dayName);
+  // Use local date comparison — avoids UTC offset issues
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}` === todayStr();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -63,6 +78,23 @@ const CSS = `
   --sb:220px;--mob-nav:62px;--mob-header:54px;
   --r:12px;
 }
+/* Light mode overrides */
+.light-mode{
+  --bg:#F4F4FF;--bg2:#FFFFFF;--bg3:#EEEEF8;--bg4:#E2E2F0;
+  --b:rgba(0,0,0,0.07);--b2:rgba(0,0,0,0.14);
+  --t:#0D0D20;--m:#8888AA;--m2:#5555777;
+  --glow:0 0 20px rgba(0,120,80,0.08);
+  --glow2:0 0 20px rgba(0,80,160,0.08);
+}
+.light-mode .aib{background:linear-gradient(135deg,rgba(0,180,100,.05),rgba(0,80,200,.03));}
+.light-mode .streak-banner{background:linear-gradient(135deg,rgba(0,160,90,.07),rgba(0,80,200,.04));}
+.light-mode .processed-note{background:linear-gradient(135deg,rgba(0,160,90,.05),rgba(0,80,200,.03));}
+.light-mode .ti::before{background:linear-gradient(135deg,rgba(0,160,90,.04),transparent);}
+.light-mode .ptitle em{background:linear-gradient(135deg,#00A060,#0055CC);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.light-mode .mob-logo em{background:linear-gradient(135deg,#00A060,#0055CC);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.light-mode .streak-count{background:linear-gradient(135deg,#00A060,#0055CC);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.light-mode .bp{background:linear-gradient(135deg,#00C878,#00A060);color:#fff;}
+.light-mode .bp:hover{filter:brightness(1.08);}
 html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow:hidden}
 ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
 
@@ -420,7 +452,8 @@ function LoginScreen({ onLogin }) {
   };
 
   return (
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",
+    <div className={localStorage.getItem("lifeos_light")==="true"?"light-mode":""}
+      style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",
       background:"var(--bg)",flexDirection:"column",padding:20,fontFamily:"var(--font)"}}>
       <style>{CSS}</style>
       <div style={{width:"100%",maxWidth:340,background:"var(--bg2)",border:"1px solid var(--b)",
@@ -535,8 +568,12 @@ function TodayTab({ streak, weekPlan }) {
   useEffect(() => { load(); }, [load]);
 
   const ws = weekStart(today);
-  const bpIdx = (() => { const d=new Date().getDay(); return d===0?6:d-1; })();
-  const todayPlan = weekPlan?.fitness?.days?.[bpIdx] || null;
+  // Match today's plan by day NAME — not array index.
+  // Handles AI plans that start from Sunday or Monday.
+  const todayDayAbbr = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][new Date().getDay()];
+  const todayPlan = weekPlan?.fitness?.days?.find(d =>
+    d.day && (d.day.slice(0,3) === todayDayAbbr)
+  ) || null;
 
   const tasks = [
     { id:"daily",   icon:"🌙", label:"Sleep + Activity",
@@ -1148,7 +1185,7 @@ function NotesTab() {
 // SETTINGS TAB
 // Schedule upload, app settings, danger zone
 // ═══════════════════════════════════════════════════════════════════════════════
-function SettingsTab({ onReset }) {
+function SettingsTab({ onReset, lightMode, toggleLight }) {
   const [schedOpen, setSchedOpen]     = useState(false);
   const [resetOpen, setResetOpen]     = useState(false);
   const [bodyweightOnly, setBodyweightOnly] = useState(
@@ -1262,10 +1299,10 @@ function SettingsTab({ onReset }) {
 
         <div className="setting-row">
           <div className="sr-left">
-            <div className="sr-label">Dark Mode</div>
-            <div className="sr-desc">App is always dark — full dark mode only</div>
+            <div className="sr-label">{lightMode ? "☀️ Light Mode" : "🌙 Dark Mode"}</div>
+            <div className="sr-desc">{lightMode ? "Switch to dark — easier on eyes at night" : "Switch to light — better in bright environments"}</div>
           </div>
-          <div className="toggle on" style={{opacity:.4,cursor:"not-allowed"}}>
+          <div className={"toggle"+(lightMode?"":" on")} onClick={toggleLight}>
             <div className="toggle-thumb"/>
           </div>
         </div>
@@ -1598,7 +1635,7 @@ export default function App() {
   return (
     <>
       <style>{CSS}</style>
-      <div className="app">
+      <div className={"app"+(lightMode?" light-mode":"")}>
 
         {/* Desktop sidebar */}
         <div className="sb">
@@ -1647,7 +1684,7 @@ export default function App() {
             {tab==="notes"    && <NotesTab/>}
             {tab==="hobbies"  && <HobbiesTab/>}
             {tab==="skills"   && <SkillsTab/>}
-            {tab==="settings" && <SettingsTab onReset={()=>setAuthed(false)}/>}
+            {tab==="settings" && <SettingsTab onReset={()=>setAuthed(false)} lightMode={lightMode} toggleLight={toggleLight}/>}
           </div>
         </div>
 
