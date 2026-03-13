@@ -1408,8 +1408,7 @@ function ScheduleUploadModal({ weekStartDate, onClose }) {
               </div>
               <textarea className="ta" value={schedText} onChange={e=>setSchedText(e.target.value)}
                 style={{minHeight:160,fontSize:12.5,lineHeight:1.7}}
-                placeholder={"Monday: Work 6am-2pm&#10;Tuesday: College 8am-3pm&#10;Wednesday: Off&#10;Thursday: Work 6am-2pm + College 5pm-8pm&#10;Friday: Off&#10;Saturday: Work 10am-6pm&#10;Sunday: Off".replace(/&#10;/g,"
-")}
+                placeholder="e.g. Monday: Work 6am-2pm, Tuesday: College 8am-3pm, Wednesday: Off..."
               />
               <div style={{fontSize:10,color:"var(--m)",marginTop:5}}>
                 Include shift times, college hours, and any fixed commitments.
