@@ -1330,54 +1330,129 @@ function SettingsTab({ onReset }) {
 
 // ─── Schedule Upload Modal ────────────────────────────────────────────────────
 function ScheduleUploadModal({ weekStartDate, onClose }) {
-  const [file,setFile]=useState(null);const [prev,setPrev]=useState(null);
-  const [loading,setLoading]=useState(false);const [result,setResult]=useState(null);
-  const [err,setErr]=useState(null);const ref=useRef();
+  const [mode, setMode]         = useState("text"); // "text" or "image"
+  const [schedText, setSchedText] = useState("");
+  const [file, setFile]         = useState(null);
+  const [prev, setPrev]         = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [result, setResult]     = useState(null);
+  const [err, setErr]           = useState(null);
+  const ref = useRef();
+
+  const canGenerate = mode === "text" ? schedText.trim().length > 20 : !!file;
 
   const generate = async () => {
-    if(!file){setErr("Upload your schedule photo.");return;}
-    setLoading(true);setErr(null);
+    if (!canGenerate) return;
+    setLoading(true); setErr(null);
     try {
-      const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res({data:r.result.split(",")[1],type:file.type});r.onerror=rej;r.readAsDataURL(file);});
-      const res=await api("/workout/generate-week",{method:"POST",body:JSON.stringify({week_start:weekStartDate,schedule_image:b64,module:"fitness"})});
-      setResult(res.reasoning);
-    }catch(e){setErr(e.message);}
+      let body;
+      if (mode === "text") {
+        body = { week_start: weekStartDate, schedule_text: schedText.trim(), module: "fitness" };
+      } else {
+        // Convert image to base64
+        const b64 = await new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res({ data: r.result.split(",")[1], type: file.type });
+          r.onerror = rej;
+          r.readAsDataURL(file);
+        });
+        body = { week_start: weekStartDate, schedule_image: b64, module: "fitness" };
+      }
+      const res = await api("/workout/generate-week", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      setResult(res.reasoning || "Plan generated successfully.");
+    } catch(e) { setErr(e.message); }
     setLoading(false);
   };
+
+  const tabStyle = (m) => ({
+    flex:1, padding:"8px 10px", textAlign:"center",
+    fontSize:12, fontWeight:700, cursor:"pointer",
+    borderBottom: mode===m ? "2px solid var(--a)" : "2px solid transparent",
+    color: mode===m ? "var(--a)" : "var(--m)",
+    transition:"all .15s",
+  });
 
   return (
     <div className="ov" onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div className="modal">
         <div className="mh">
-          <div><div className="mt">Upload Weekly Schedule</div>
-          <div className="ms">Photo or screenshot — AI reads it and generates your plan</div></div>
+          <div><div className="mt">Weekly Schedule</div>
+          <div className="ms">AI generates your bodyweight workout plan from this</div></div>
           <button className="mcl" onClick={onClose}>×</button>
         </div>
-        <div className="mb">
-          <div style={{fontSize:12,color:"var(--m2)",marginBottom:10,lineHeight:1.6}}>
-            Each week the plan improves using your accumulated data. Week 1 is a baseline. By week 4 AI knows your patterns.
+
+        {/* Mode toggle */}
+        <div style={{display:"flex",borderBottom:"1px solid var(--b)",padding:"0 18px"}}>
+          <div style={tabStyle("text")} onClick={()=>{setMode("text");setResult(null);setErr(null);}}>
+            ✏️ Type Schedule
           </div>
-          {prev?<img src={prev} className="upr" alt="schedule"/>:
-            <div className="uz" onClick={()=>ref.current?.click()}>
-              <div style={{fontSize:24,marginBottom:6}}>📅</div>
-              <div style={{fontSize:12,color:"var(--m2)"}}><b style={{color:"var(--t)"}}>Tap to upload</b> your schedule</div>
-            </div>}
-          <input ref={ref} type="file" accept="image/*" style={{display:"none"}}
-            onChange={e=>{const f=e.target.files[0];if(f){setFile(f);setPrev(URL.createObjectURL(f));}}}/>
-          <Err msg={err}/>
-          {result&&(
+          <div style={tabStyle("image")} onClick={()=>{setMode("image");setResult(null);setErr(null);}}>
+            📸 Upload Photo
+          </div>
+        </div>
+
+        <div className="mb">
+          <div style={{fontSize:11.5,color:"var(--m2)",marginBottom:11,lineHeight:1.65}}>
+            Week 1 = baseline plan. Each week AI improves using your accumulated observations.
+            Your commute times and preferences from Notes are applied automatically.
+          </div>
+
+          {mode === "text" ? (
             <div>
-              <AiBox label="AI Reasoning for this week" text={result}/>
-              <div style={{fontSize:12,color:"var(--a)",marginTop:8,fontWeight:600}}>
+              <div style={{fontSize:10,fontWeight:700,color:"var(--m)",letterSpacing:"1.5px",
+                textTransform:"uppercase",marginBottom:7}}>
+                Type or paste your schedule
+              </div>
+              <textarea className="ta" value={schedText} onChange={e=>setSchedText(e.target.value)}
+                style={{minHeight:160,fontSize:12.5,lineHeight:1.7}}
+                placeholder={"Monday: Work 6am-2pm&#10;Tuesday: College 8am-3pm&#10;Wednesday: Off&#10;Thursday: Work 6am-2pm + College 5pm-8pm&#10;Friday: Off&#10;Saturday: Work 10am-6pm&#10;Sunday: Off".replace(/&#10;/g,"
+")}
+              />
+              <div style={{fontSize:10,color:"var(--m)",marginTop:5}}>
+                Include shift times, college hours, and any fixed commitments.
+              </div>
+            </div>
+          ) : (
+            <div>
+              {prev
+                ? <img src={prev} className="upr" alt="schedule"/>
+                : <div className="uz" onClick={()=>ref.current?.click()}>
+                    <div style={{fontSize:24,marginBottom:6}}>📅</div>
+                    <div style={{fontSize:12,color:"var(--m2)"}}>
+                      <b style={{color:"var(--t)"}}>Tap to upload</b> — photo or screenshot of your schedule
+                    </div>
+                  </div>
+              }
+              {prev && (
+                <button className="btn bs bsm" style={{marginBottom:8,width:"100%"}}
+                  onClick={()=>{setFile(null);setPrev(null);}}>
+                  Remove — choose different photo
+                </button>
+              )}
+              <input ref={ref} type="file" accept="image/*" style={{display:"none"}}
+                onChange={e=>{const f=e.target.files[0];if(f){setFile(f);setPrev(URL.createObjectURL(f));}}}/>
+            </div>
+          )}
+
+          <Err msg={err}/>
+
+          {result && (
+            <div style={{marginTop:10}}>
+              <div style={{fontSize:11,color:"var(--a)",fontWeight:700,marginBottom:5}}>
                 ✓ Plan saved — check Fitness → Blueprint
               </div>
+              <AiBox label="AI note for this week" text={result}/>
             </div>
           )}
         </div>
+
         <div className="mf">
           <button className="btn bs" onClick={onClose}>Close</button>
-          <button className="btn bp" onClick={generate} disabled={!file||loading}>
-            {loading?<><Dots/> Generating…</>:"✦ Generate This Week"}
+          <button className="btn bp" onClick={generate} disabled={!canGenerate||loading}>
+            {loading ? <><Dots/> Generating…</> : "✦ Generate This Week"}
           </button>
         </div>
       </div>
