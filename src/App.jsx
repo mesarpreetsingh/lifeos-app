@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 const WORKER_URL = "https://lifeos-api.sarpreet5601.workers.dev";
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
-function getToken() { return sessionStorage.getItem("lifeos_token") || ""; }
+function getToken() { return localStorage.getItem("lifeos_token") || ""; }
 
 // ─── API helper — every request carries the auth token ────────────────────────
 async function api(path, options = {}) {
@@ -44,30 +44,32 @@ const CSS = `
   --a:#5CFFB0;--warn:#FF6B6B;--gold:#FFD166;
   --t:#EEEEFF;--m:#55557A;--m2:#8888AA;
   --font:'Syne',sans-serif;--mono:'DM Mono',monospace;
-  --nav-h:60px;
+  --sb:220px;--mob-nav:64px;--mob-header:52px;
 }
-html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--font);-webkit-font-smoothing:antialiased}
+html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow:hidden}
 ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
 
-/* ── App shell ── */
-.app{display:flex;height:100vh;overflow:hidden}
+/* ════════════════════════════════
+   APP SHELL
+   ════════════════════════════════ */
+.app{display:flex;height:100vh;overflow:hidden;position:relative}
 
-/* ── Sidebar (desktop) ── */
-.sb{width:220px;min-width:220px;background:var(--bg2);border-right:1px solid var(--b);
-  display:flex;flex-direction:column;padding:24px 0 16px;flex-shrink:0}
+/* ════════════════════════════════
+   DESKTOP SIDEBAR
+   ════════════════════════════════ */
+.sb{width:var(--sb);min-width:var(--sb);background:var(--bg2);
+  border-right:1px solid var(--b);display:flex;flex-direction:column;
+  padding:24px 0 16px;flex-shrink:0}
 .logo{padding:0 20px 22px;font-size:20px;font-weight:800;letter-spacing:-0.5px}
 .logo em{color:var(--a);font-style:normal}
 .ns{font-size:9px;font-weight:700;letter-spacing:2.5px;color:var(--m);
-  padding:0 20px 5px;text-transform:uppercase}
+  padding:0 20px 6px;text-transform:uppercase}
 .ni{display:flex;align-items:center;gap:10px;padding:10px 20px;font-size:13px;
   font-weight:600;color:var(--m2);cursor:pointer;border-left:2px solid transparent;transition:all .15s}
 .ni:hover{color:var(--t);background:rgba(255,255,255,.02)}
 .ni.on{color:var(--a);border-left-color:var(--a);background:rgba(92,255,176,.04)}
-.ni .dot{width:5px;height:5px;border-radius:50%;background:var(--warn);
-  margin-left:auto;animation:pulse 2s infinite}
 .ni .sn{margin-left:auto;font-size:9px;font-weight:700;color:var(--m);
   background:var(--bg4);padding:2px 6px;border-radius:4px}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .sb-foot{margin-top:auto;padding:14px 16px;display:flex;flex-direction:column;gap:7px}
 .streak-sb{background:var(--bg3);border:1px solid rgba(92,255,176,.15);border-radius:8px;
   padding:8px 12px;display:flex;align-items:center;gap:8px}
@@ -77,9 +79,13 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--font
   background:rgba(255,107,107,.08);color:var(--warn);border:1px solid rgba(255,107,107,.2)}
 .worker-badge.ok{background:rgba(92,255,176,.06);color:var(--a);border-color:rgba(92,255,176,.15)}
 
-/* ── Main area ── */
+/* ════════════════════════════════
+   MAIN AREA (desktop)
+   ════════════════════════════════ */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
-.topbar{padding:18px 22px 0;display:flex;align-items:flex-end;justify-content:space-between;flex-shrink:0}
+.mob-header{display:none}
+.topbar{padding:18px 22px 0;display:flex;align-items:flex-end;
+  justify-content:space-between;flex-shrink:0}
 .ptitle{font-size:22px;font-weight:800;letter-spacing:-0.5px;line-height:1}
 .ptitle em{color:var(--a);font-style:normal}
 .pdate{font-size:11px;color:var(--m);font-family:var(--mono);padding-bottom:2px}
@@ -89,28 +95,37 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--font
 .sni{padding:8px 12px;font-size:12px;font-weight:700;color:var(--m);cursor:pointer;
   border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;transition:all .15s}
 .sni:hover{color:var(--t)}.sni.on{color:var(--a);border-bottom-color:var(--a)}
-.cnt{flex:1;overflow-y:auto;padding:18px 22px 100px}
 
-/* ── Cards ── */
+/* tab-content replaces .cnt — scrollable content area */
+.tab-content{flex:1;overflow-y:auto;overflow-x:hidden}
+.cnt{padding:18px 22px 40px}
+
+/* ════════════════════════════════
+   MOBILE BOTTOM NAV
+   ════════════════════════════════ */
+.mnav{display:none}
+
+/* ════════════════════════════════
+   CARDS & SHARED COMPONENTS
+   ════════════════════════════════ */
 .card{background:var(--bg2);border:1px solid var(--b);border-radius:11px;padding:14px 16px}
 .ctitle{font-size:9px;font-weight:700;letter-spacing:2px;color:var(--m);
   text-transform:uppercase;margin-bottom:10px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
-.mr{display:flex;align-items:center;justify-content:space-between;
-  padding:6px 0;border-bottom:1px solid var(--b)}.mr:last-child{border:none}
-.mn{font-size:12px;color:var(--m2)}.mv{font-size:12px;font-weight:700;font-family:var(--mono)}
 
-/* ── AI output box ── */
 .aib{background:var(--bg3);border:1px solid rgba(92,255,176,.18);
   border-radius:10px;padding:12px 14px;margin-top:10px}
 .aib-t{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
   color:var(--a);margin-bottom:6px;display:flex;align-items:center;gap:6px}
 .aib p{font-size:13px;line-height:1.75;color:var(--m2);white-space:pre-wrap}
 
-/* ── Today tasks ── */
+/* ════════════════════════════════
+   TODAY TAB
+   ════════════════════════════════ */
 .tgl{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
   color:var(--m);margin:15px 0 7px;display:flex;align-items:center;gap:7px}
-.tgl:first-child{margin-top:0}.tgl::after{content:'';flex:1;height:1px;background:var(--b)}
+.tgl:first-child{margin-top:0}
+.tgl::after{content:'';flex:1;height:1px;background:var(--b)}
 .ti{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--bg2);
   border:1px solid var(--b);border-radius:10px;cursor:pointer;transition:all .18s;margin-bottom:8px}
 .ti:hover{border-color:var(--b2);transform:translateX(2px)}.ti.done{opacity:.45;pointer-events:none}
@@ -123,59 +138,51 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--font
 .tbdg{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;flex-shrink:0}
 .tbdg.p{background:rgba(255,255,255,.05);color:var(--m)}
 .tbdg.d{background:rgba(92,255,176,.12);color:var(--a)}
-
-/* ── Streak banner ── */
 .streak-banner{display:flex;align-items:center;gap:12px;padding:12px 15px;
   background:linear-gradient(135deg,rgba(92,255,176,.07),rgba(92,158,255,.04));
   border:1px solid rgba(92,255,176,.18);border-radius:10px;margin-bottom:16px}
 .streak-count{font-size:28px;font-weight:800;font-family:var(--mono);color:var(--a);line-height:1}
 .streak-msg{font-size:12px;color:var(--m2);flex:1;line-height:1.5}
 
-/* ── Blueprint rows ── */
+/* ════════════════════════════════
+   BLUEPRINT / WORKOUT
+   ════════════════════════════════ */
 .bpr{display:flex;align-items:center;padding:10px 13px;background:var(--bg2);
   border:1px solid var(--b);border-radius:10px;cursor:pointer;transition:all .15s;margin-bottom:7px}
-.bpr:hover{border-color:var(--b2)}
-.bpr.today{border-color:rgba(92,255,176,.3);background:rgba(92,255,176,.03)}
+.bpr:hover{border-color:var(--b2)}.bpr.today{border-color:rgba(92,255,176,.3);background:rgba(92,255,176,.03)}
 .bpr.rest{opacity:.5;cursor:default}
 .bpday{font-size:12px;font-weight:700;width:30px;color:var(--m2);flex-shrink:0}
-.bpctx{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;
-  margin-right:9px;flex-shrink:0;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bpctx{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:9px;
+  flex-shrink:0;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cw{background:rgba(92,158,255,.12);color:#7ABAFF}
 .cc{background:rgba(180,100,255,.12);color:#CC88FF}
 .cb{background:rgba(255,107,107,.12);color:#FF8A8A}
 .co{background:rgba(92,255,176,.12);color:var(--a)}
 .cr{background:rgba(255,255,255,.05);color:var(--m)}
-.bptyp{font-size:12px;font-weight:600;flex:1;min-width:0;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bpwin{font-size:10px;color:var(--m);font-family:var(--mono);
-  flex-shrink:0;margin-left:8px;white-space:nowrap}
+.bptyp{font-size:12px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bpwin{font-size:10px;color:var(--m);font-family:var(--mono);flex-shrink:0;margin-left:8px;white-space:nowrap}
 .tdot{width:5px;height:5px;border-radius:50%;background:var(--a);margin-right:6px;flex-shrink:0}
 .bp-note{font-size:12px;color:var(--m2);background:var(--bg3);border-radius:7px;
   padding:8px 11px;margin-top:8px;font-style:italic;line-height:1.55}
 .week-reasoning{background:var(--bg3);border:1px solid rgba(92,158,255,.15);
-  border-radius:9px;padding:11px 13px;margin-top:10px;font-size:12px;
-  color:var(--m2);line-height:1.7;white-space:pre-wrap}
-.reasoning-lbl{font-size:9px;font-weight:700;letter-spacing:2px;
-  text-transform:uppercase;color:#7ABAFF;margin-bottom:5px}
-
-/* ── Workout sections ── */
+  border-radius:9px;padding:11px 13px;margin-top:10px;font-size:12px;color:var(--m2);line-height:1.7}
+.reasoning-lbl{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:#7ABAFF;margin-bottom:5px}
 .ex-section{margin-bottom:10px}
-.ex-section-title{font-size:9px;font-weight:700;letter-spacing:2px;
-  text-transform:uppercase;color:var(--m);margin-bottom:5px}
-.exr{display:flex;align-items:center;gap:8px;padding:7px 10px;
-  background:var(--bg3);border-radius:7px;margin-bottom:4px}
+.ex-section-title{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--m);margin-bottom:5px}
+.exr{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg3);border-radius:7px;margin-bottom:4px}
 .exn{flex:1;font-size:12px;font-weight:500}
 .exrp{font-size:11px;color:var(--a);font-family:var(--mono)}
 
-/* ── Goal cards ── */
+/* ════════════════════════════════
+   GOALS
+   ════════════════════════════════ */
 .goal-input-wrap{display:flex;gap:7px;margin-bottom:14px}
 .goal-input{flex:1;background:var(--bg2);border:1px solid var(--b);border-radius:8px;
   padding:10px 12px;color:var(--t);font-family:var(--font);font-size:13px;
   outline:none;transition:border-color .15s}
-.goal-input:focus{border-color:rgba(92,255,176,.4)}
-.goal-input::placeholder{color:var(--m)}
-.goal-card{background:var(--bg2);border:1px solid var(--b);border-radius:10px;
-  padding:12px 14px;margin-bottom:8px}
+.goal-input:focus{border-color:rgba(92,255,176,.4)}.goal-input::placeholder{color:var(--m)}
+.goal-card{background:var(--bg2);border:1px solid var(--b);border-radius:10px;padding:12px 14px;margin-bottom:8px}
 .goal-card.done{opacity:.45}
 .goal-text{font-size:13px;font-weight:700;display:flex;align-items:flex-start;
   justify-content:space-between;gap:8px;margin-bottom:3px}
@@ -186,13 +193,16 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--font
   font-size:13px;padding:1px 3px;transition:color .15s;flex-shrink:0}
 .gc-btn:hover{color:var(--warn)}
 
-/* ── Notes ── */
-.note-card{background:var(--bg2);border:1px solid var(--b);border-radius:10px;
-  padding:12px 14px;margin-bottom:8px}
+/* ════════════════════════════════
+   NOTES
+   ════════════════════════════════ */
+.note-card{background:var(--bg2);border:1px solid var(--b);border-radius:10px;padding:12px 14px;margin-bottom:8px}
 .note-meta{font-size:10px;color:var(--m);font-family:var(--mono);margin-bottom:5px}
 .note-body{font-size:13px;line-height:1.65;color:var(--t);white-space:pre-wrap}
 
-/* ── Inputs ── */
+/* ════════════════════════════════
+   INPUTS
+   ════════════════════════════════ */
 .ta{width:100%;background:var(--bg2);border:1px solid var(--b);border-radius:9px;
   padding:11px 13px;color:var(--t);font-family:var(--font);font-size:13px;
   line-height:1.6;resize:vertical;outline:none;transition:border-color .15s}
@@ -202,7 +212,9 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--font
   outline:none;transition:border-color .15s}
 .inp:focus{border-color:rgba(92,255,176,.4)}.inp::placeholder{color:var(--m)}
 
-/* ── Modals ── */
+/* ════════════════════════════════
+   MODALS
+   ════════════════════════════════ */
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.9);display:flex;
   align-items:center;justify-content:center;z-index:200;padding:16px;animation:fi .15s}
 @keyframes fi{from{opacity:0}to{opacity:1}}
@@ -213,136 +225,204 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--font
   display:flex;align-items:flex-start;justify-content:space-between}
 .mt{font-size:15px;font-weight:800}
 .ms{font-size:11px;color:var(--m2);margin-top:2px;font-family:var(--mono)}
-.mcl{background:var(--bg4);border:none;color:var(--m);width:26px;height:26px;
+.mcl{background:var(--bg4);border:none;color:var(--m);width:28px;height:28px;
   border-radius:6px;cursor:pointer;font-size:16px;display:flex;
-  align-items:center;justify-content:center;flex-shrink:0}
+  align-items:center;justify-content:center;flex-shrink:0;line-height:1}
 .mb{padding:14px 18px}
 .mf{padding:10px 18px 14px;border-top:1px solid var(--b);display:flex;gap:8px}
 
-/* ── Upload ── */
+/* ════════════════════════════════
+   UPLOAD ZONES
+   ════════════════════════════════ */
 .uz{border:2px dashed var(--b);border-radius:10px;padding:22px 18px;
   text-align:center;cursor:pointer;transition:all .15s;margin-bottom:9px}
 .uz:hover{border-color:var(--a);background:rgba(92,255,176,.02)}
-.upr{width:100%;max-height:150px;object-fit:contain;border-radius:8px;
-  margin-bottom:8px;border:1px solid var(--b)}
+.upr{width:100%;max-height:150px;object-fit:contain;border-radius:8px;margin-bottom:8px;border:1px solid var(--b)}
 .upload-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
 .upload-half{border:1px dashed var(--b);border-radius:9px;padding:14px 10px;
-  text-align:center;cursor:pointer;transition:all .15s}
+  text-align:center;cursor:pointer;transition:all .15s;min-height:90px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center}
 .upload-half:hover{border-color:var(--a)}
 .upload-half.has{border-color:rgba(92,255,176,.4);background:rgba(92,255,176,.03)}
 .upload-half img{width:100%;max-height:80px;object-fit:contain;border-radius:6px;margin-bottom:4px}
 .upload-half-lbl{font-size:11px;color:var(--m2)}
 
-/* ── Buttons ── */
+/* ════════════════════════════════
+   BUTTONS
+   ════════════════════════════════ */
 .btn{padding:10px 15px;border-radius:8px;font-family:var(--font);font-size:13px;
   font-weight:700;cursor:pointer;border:none;transition:all .15s;
-  display:flex;align-items:center;justify-content:center;gap:5px}
+  display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
 .bp{background:var(--a);color:#05050E;flex:1}
 .bp:hover{background:#7BFFC4}.bp:disabled{opacity:.5;cursor:not-allowed}
 .bs{background:var(--bg3);color:var(--t);border:1px solid var(--b);flex:1}
 .bs:hover{border-color:var(--b2)}
-.bsm{flex:none;padding:7px 12px;font-size:11px}
+.bsm{flex:none;padding:8px 13px;font-size:12px}
 
-/* ── Loading dots ── */
+/* ════════════════════════════════
+   MISC
+   ════════════════════════════════ */
 .dots{display:inline-flex;gap:3px}
 .dots span{width:5px;height:5px;border-radius:50%;background:var(--a);animation:bop 1.1s infinite}
 .dots span:nth-child(2){animation-delay:.18s}.dots span:nth-child(3){animation-delay:.36s}
 @keyframes bop{0%,80%,100%{transform:scale(0.6)}40%{transform:scale(1)}}
-
-/* ── Error banner ── */
 .err-banner{padding:8px 12px;background:rgba(255,107,107,.08);
   border:1px solid rgba(255,107,107,.2);border-radius:8px;
   font-size:12px;color:var(--warn);margin-bottom:10px}
-
-/* ── Coming soon ── */
 .cs-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;
   min-height:300px;text-align:center;gap:8px;padding:20px}
 .cs-list{margin-top:11px;display:flex;flex-direction:column;gap:5px;width:100%;max-width:270px}
 .cs-item{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg2);
   border:1px solid var(--b);border-radius:8px;font-size:12px;color:var(--m2)}
-.cs-tag{margin-left:auto;font-size:9px;font-weight:700;color:var(--m);
-  background:var(--bg3);padding:2px 6px;border-radius:4px}
+.cs-tag{margin-left:auto;font-size:9px;font-weight:700;color:var(--m);background:var(--bg3);padding:2px 6px;border-radius:4px}
 .cs-badge{margin-top:14px;padding:7px 16px;background:rgba(92,255,176,.06);
-  border:1px solid rgba(92,255,176,.15);border-radius:7px;font-size:12px;
-  color:var(--a);font-weight:600}
+  border:1px solid rgba(92,255,176,.15);border-radius:7px;font-size:12px;color:var(--a);font-weight:600}
 
-/* ── Mobile bottom nav ── */
-.mnav{display:none;position:fixed;bottom:0;left:0;right:0;
-  background:var(--bg2);border-top:1px solid var(--b);z-index:100;
-  padding-bottom:env(safe-area-inset-bottom,0px)}
-.mnav-items{display:flex}
-.mni{flex:1;display:flex;flex-direction:column;align-items:center;
-  padding:9px 4px 7px;cursor:pointer;gap:3px;min-width:0}
-.mni-ico{font-size:20px;line-height:1}
-.mni-lbl{font-size:9px;font-weight:700;color:var(--m);
-  text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
-.mni.on .mni-lbl{color:var(--a)}
-
-/* ══════════════════════════════════════════════════
-   MOBILE — everything below 768px
-   ══════════════════════════════════════════════════ */
+/* ════════════════════════════════
+   MOBILE  ≤ 768px
+   Full redesign — not just adjustments
+   ════════════════════════════════ */
 @media(max-width:768px){
-  /* Hide sidebar, show bottom nav */
+  html,body{overflow:hidden;height:100%;height:100dvh}
+
+  /* Hide desktop elements */
   .sb{display:none}
-  .mnav{display:block}
+  .topbar{display:none}
 
-  /* Main fills full width */
-  .app{flex-direction:column}
-  .main{height:100vh;width:100%}
+  /* App is a full-height flex column */
+  .app{flex-direction:column;height:100vh;height:100dvh}
 
-  /* Give content room above the nav bar */
-  .cnt{padding:14px 14px 90px}
-  .topbar{padding:14px 14px 0}
-  .subnav{padding:8px 14px 0}
+  /* Mobile header — fixed top bar */
+  .mob-header{
+    display:flex;align-items:center;
+    padding:0 16px;
+    height:var(--mob-header);
+    min-height:var(--mob-header);
+    background:var(--bg2);
+    border-bottom:1px solid var(--b);
+    flex-shrink:0;
+    gap:10px;
+  }
+  .mob-logo{font-size:18px;font-weight:800;letter-spacing:-0.5px;flex:1}
+  .mob-logo em{color:var(--a);font-style:normal}
+  .mob-date{font-size:11px;color:var(--m);font-family:var(--mono)}
+  .mob-streak{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:800;
+    color:var(--a);font-family:var(--mono);background:rgba(92,255,176,.08);
+    border:1px solid rgba(92,255,176,.15);border-radius:20px;padding:3px 9px}
 
-  /* Typography */
-  .ptitle{font-size:20px}
+  /* Main fills remaining space */
+  .main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    min-height:0;
+  }
 
-  /* Stack the two-column grid */
+  /* Scrollable content */
+  .tab-content{
+    flex:1;
+    overflow-y:auto;
+    overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  /* Content padding — bottom clears the nav bar */
+  .cnt{padding:14px 14px calc(var(--mob-nav) + 20px) 14px}
+
+  /* Subnav for fitness tabs */
+  .subnav{padding:0 14px;background:var(--bg2);border-bottom:1px solid var(--b)}
+  .sni{padding:10px 10px;font-size:11px}
+
+  /* Bottom nav */
+  .mnav{
+    display:flex;
+    position:fixed;
+    bottom:0;left:0;right:0;
+    height:var(--mob-nav);
+    background:var(--bg2);
+    border-top:1px solid var(--b);
+    z-index:100;
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  .mni{
+    flex:1;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    padding:6px 2px 4px;
+    cursor:pointer;gap:3px;
+    position:relative;
+  }
+  .mni-ico{font-size:22px;line-height:1;transition:transform .15s}
+  .mni.on .mni-ico{transform:scale(1.15)}
+  .mni-lbl{
+    font-size:9px;font-weight:700;color:var(--m);
+    text-transform:uppercase;letter-spacing:.5px;
+    white-space:nowrap;line-height:1
+  }
+  .mni.on .mni-lbl{color:var(--a)}
+  .mni-dot{position:absolute;top:5px;right:20%;width:5px;height:5px;
+    border-radius:50%;background:var(--warn)}
+
+  /* Stack 2-col grids */
   .g2{grid-template-columns:1fr}
 
-  /* Upload pair — stack vertically on small screens */
-  .upload-pair{grid-template-columns:1fr}
+  /* Upload pair: side by side still fine at 320+ */
+  .upload-pair{grid-template-columns:1fr 1fr;gap:8px}
 
-  /* Blueprint — hide time window to save space */
-  .bpwin{display:none}
-
-  /* Tasks — make them easier to tap */
-  .ti{padding:14px 12px}
-  .tic{width:38px;height:38px;font-size:18px}
+  /* Task items — bigger tap targets */
+  .ti{padding:14px 12px;border-radius:12px}
+  .tic{width:40px;height:40px;font-size:19px;border-radius:10px}
   .tlbl{font-size:14px}
   .tdsc{font-size:12px}
 
-  /* Goals input */
-  .goal-input-wrap{flex-direction:column}
-  .goal-input-wrap .bsm{width:100%}
-
-  /* Modals full-screen on mobile */
-  .ov{padding:0;align-items:flex-end}
-  .modal{max-width:100%;border-radius:16px 16px 0 0;max-height:92vh}
-
-  /* Streak banner tighter */
-  .streak-banner{padding:10px 12px;gap:10px}
-  .streak-count{font-size:24px}
+  /* Streak banner */
+  .streak-banner{padding:11px 13px;gap:10px;border-radius:12px}
+  .streak-count{font-size:26px}
   .streak-msg{font-size:11px}
 
-  /* Subnav tabs smaller */
-  .sni{padding:7px 10px;font-size:11px}
+  /* Blueprint rows */
+  .bpr{padding:12px 12px;border-radius:10px}
+  .bpday{font-size:13px;width:32px}
+  .bpctx{font-size:8px;padding:2px 5px;max-width:65px}
+  .bptyp{font-size:13px}
+  .bpwin{display:none}
 
-  /* Buttons full-width in modal footer */
-  .mf{flex-direction:column}
+  /* Goals */
+  .goal-input-wrap{flex-direction:column}
+  .goal-input-wrap .bsm{width:100%;text-align:center}
+
+  /* Notes textarea */
+  .ta{min-height:80px}
+
+  /* Modals — sheet from bottom */
+  .ov{padding:0;align-items:flex-end}
+  .modal{
+    max-width:100%;width:100%;
+    border-radius:20px 20px 0 0;
+    max-height:88vh;
+  }
+  .mh{padding:16px 16px 12px}
+  .mb{padding:12px 16px}
+  .mf{padding:10px 16px 16px;flex-direction:column}
   .mf .bs,.mf .bp{flex:none;width:100%}
+
+  /* Buttons in rows */
+  .btn{padding:11px 14px;font-size:14px;border-radius:10px}
+
+  /* AI box */
+  .aib{border-radius:10px;padding:12px 13px}
+  .aib p{font-size:12px}
 }
 
-/* Extra small phones */
-@media(max-width:380px){
+/* Very small phones */
+@media(max-width:360px){
+  .mni-ico{font-size:19px}
   .mni-lbl{font-size:8px}
-  .mni-ico{font-size:18px}
-  .ptitle{font-size:18px}
-  .cnt{padding:12px 12px 88px}
+  .cnt{padding:12px 12px calc(var(--mob-nav) + 18px) 12px}
+  .upload-pair{grid-template-columns:1fr}
 }
 `;
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // LOGIN SCREEN
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -362,7 +442,7 @@ function LoginScreen({ onLogin }) {
       });
       const data = await res.json();
       if (!res.ok) { setError("Wrong password — try again."); setLoading(false); return; }
-      sessionStorage.setItem("lifeos_token", data.token);
+      localStorage.setItem("lifeos_token", data.token);
       onLogin();
     } catch { setError("Could not reach server. Check connection."); }
     setLoading(false);
@@ -1269,26 +1349,27 @@ const NAV = [
 ];
 
 export default function App() {
-  const [authed, setAuthed] = useState(!!sessionStorage.getItem("lifeos_token"));
-  const [tab, setTab]       = useState("home");
+  // ALL hooks must be called before any conditional return — React rule
+  const [authed, setAuthed]     = useState(!!localStorage.getItem("lifeos_token"));
+  const [tab, setTab]           = useState("home");
   const [workerOk, setWorkerOk] = useState(null);
-  const [streak, setStreak] = useState({ count:0, message:"" });
+  const [streak, setStreak]     = useState({ count:0, message:"" });
   const [weekPlan, setWeekPlan] = useState(null);
 
-  // Show login screen if not authenticated
-  if (!authed) return <LoginScreen onLogin={() => setAuthed(true)} />;
-
-  // Check Worker health
   useEffect(() => {
+    if (!authed) return;
     fetch(`${WORKER_URL}/health`).then(r => setWorkerOk(r.ok)).catch(() => setWorkerOk(false));
-  }, []);
+  }, [authed]);
 
-  // Load streak and week plan after auth
   useEffect(() => {
+    if (!authed) return;
     api("/data/streak").then(d => setStreak(d)).catch(() => {});
     const ws = weekStart(todayStr());
     api(`/data/week/${ws}`).then(d => setWeekPlan(d)).catch(() => {});
-  }, []);
+  }, [authed]);
+
+  // Show login AFTER all hooks are declared
+  if (!authed) return <LoginScreen onLogin={() => setAuthed(true)} />;
 
   const TITLES = {
     home:    ["Today's"," Tasks"],
@@ -1299,12 +1380,14 @@ export default function App() {
     goals:   ["Life ","Goals"],
   };
 
+  const todayLabel = new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+
   return (
     <>
       <style>{CSS}</style>
       <div className="app">
 
-        {/* Desktop sidebar */}
+        {/* ── Desktop sidebar ── */}
         <div className="sb">
           <div className="logo">Life<em>OS</em></div>
           <div className="ns">Modules</div>
@@ -1330,34 +1413,44 @@ export default function App() {
           </div>
         </div>
 
-        {/* Main content */}
+        {/* ── Main content area ── */}
         <div className="main">
+
+          {/* Mobile-only header */}
+          <div className="mob-header">
+            <div className="mob-logo">Life<em>OS</em></div>
+            <div className="mob-date">{todayLabel}</div>
+            {streak.count > 0 && (
+              <div className="mob-streak"><span>🔥</span>{streak.count}</div>
+            )}
+          </div>
+
+          {/* Desktop topbar */}
           <div className="topbar">
             <div className="ptitle">{TITLES[tab][0]}<em>{TITLES[tab][1]}</em></div>
-            <div className="pdate">
-              {new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}
+            <div className="pdate">{todayLabel}</div>
+          </div>
+
+          <div className="tab-content">
+            {tab==="home"    && <TodayTab streak={streak} weekPlan={weekPlan}/>}
+            {tab==="fitness" && <FitnessTab/>}
+            {tab==="notes"   && <NotesTab/>}
+            {tab==="hobbies" && <HobbiesTab/>}
+            {tab==="skills"  && <SkillsTab/>}
+            {tab==="goals"   && <LifeGoalsTab/>}
+          </div>
+        </div>
+
+        {/* ── Mobile bottom nav ── */}
+        <nav className="mnav">
+          {NAV.map(n => (
+            <div key={n.id} className={"mni"+(tab===n.id?" on":"")} onClick={() => setTab(n.id)}>
+              <div className="mni-ico">{n.icon}</div>
+              <div className="mni-lbl">{n.label}</div>
+              {!n.built && <div className="mni-dot"/>}
             </div>
-          </div>
-
-          {tab==="home"    && <TodayTab streak={streak} weekPlan={weekPlan}/>}
-          {tab==="fitness" && <FitnessTab/>}
-          {tab==="notes"   && <NotesTab/>}
-          {tab==="hobbies" && <HobbiesTab/>}
-          {tab==="skills"  && <SkillsTab/>}
-          {tab==="goals"   && <LifeGoalsTab/>}
-        </div>
-
-        {/* Mobile bottom nav */}
-        <div className="mnav">
-          <div className="mnav-items">
-            {NAV.map(n => (
-              <div key={n.id} className={"mni"+(tab===n.id?" on":"")} onClick={() => setTab(n.id)}>
-                <div className="mni-ico">{n.icon}</div>
-                <div className="mni-lbl">{n.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+          ))}
+        </nav>
 
       </div>
     </>
