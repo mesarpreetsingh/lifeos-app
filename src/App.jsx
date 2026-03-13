@@ -4,7 +4,22 @@ import { useState, useEffect, useRef, useCallback } from "react";
 const WORKER_URL = "https://lifeos-api.sarpreet5601.workers.dev";
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
+// ─── Auth helpers ────────────────────────────────────────────────────────────
+const INACTIVITY_MS = 5 * 60 * 1000; // 5 minutes
+
 function getToken() { return localStorage.getItem("lifeos_token") || ""; }
+
+function stampActivity() { localStorage.setItem("lifeos_last_active", Date.now()); }
+
+function isSessionExpired() {
+  const last = parseInt(localStorage.getItem("lifeos_last_active") || "0");
+  return last && (Date.now() - last > INACTIVITY_MS);
+}
+
+function clearSession() {
+  localStorage.removeItem("lifeos_token");
+  localStorage.removeItem("lifeos_last_active");
+}
 
 // ─── API helper — every request carries the auth token ────────────────────────
 async function api(path, options = {}) {
@@ -443,6 +458,7 @@ function LoginScreen({ onLogin }) {
       const data = await res.json();
       if (!res.ok) { setError("Wrong password — try again."); setLoading(false); return; }
       localStorage.setItem("lifeos_token", data.token);
+      stampActivity();
       onLogin();
     } catch { setError("Could not reach server. Check connection."); }
     setLoading(false);
@@ -1350,11 +1366,42 @@ const NAV = [
 
 export default function App() {
   // ALL hooks must be called before any conditional return — React rule
-  const [authed, setAuthed]     = useState(!!localStorage.getItem("lifeos_token"));
+  const [authed, setAuthed]     = useState(() => !!localStorage.getItem("lifeos_token") && !isSessionExpired());
   const [tab, setTab]           = useState("home");
   const [workerOk, setWorkerOk] = useState(null);
   const [streak, setStreak]     = useState({ count:0, message:"" });
   const [weekPlan, setWeekPlan] = useState(null);
+
+  // Lock on inactivity — check every 30 seconds
+  useEffect(() => {
+    if (!authed) return;
+    const interval = setInterval(() => {
+      if (isSessionExpired()) { clearSession(); setAuthed(false); }
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [authed]);
+
+  // Reset activity timer on any user interaction
+  useEffect(() => {
+    if (!authed) return;
+    const events = ["click","keydown","touchstart","scroll","mousemove"];
+    const handler = () => stampActivity();
+    events.forEach(e => window.addEventListener(e, handler, { passive: true }));
+    return () => events.forEach(e => window.removeEventListener(e, handler));
+  }, [authed]);
+
+  // Lock immediately when tab is closed or hidden
+  useEffect(() => {
+    if (!authed) return;
+    const onHide = () => { if (document.visibilityState === "hidden") { clearSession(); } };
+    const onUnload = () => clearSession();
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("beforeunload", onUnload);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("beforeunload", onUnload);
+    };
+  }, [authed]);
 
   useEffect(() => {
     if (!authed) return;
