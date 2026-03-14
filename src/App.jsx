@@ -83,19 +83,19 @@ const CSS = `
   --bg:#EEF4FF;
   --bg2:#FFFFFF;
   --bg3:#E0ECFF;
-  --bg4:#D0E0FF;
-  --b:rgba(0,60,180,0.09);
-  --b2:rgba(0,60,180,0.18);
-  --a:#0055DD;
-  --a2:#0033AA;
-  --warn:#CC2200;
-  --gold:#996600;
-  --purple:#6600CC;
-  --t:#0A1535;
-  --m:#6078AA;
-  --m2:#3A5088;
-  --glow:0 0 16px rgba(0,60,180,0.1);
-  --glow2:0 0 16px rgba(0,40,140,0.1);
+  --bg4:#C8DAFF;
+  --b:rgba(0,60,180,0.1);
+  --b2:rgba(0,60,180,0.22);
+  --a:#0044CC;
+  --a2:#002F99;
+  --warn:#BB1100;
+  --gold:#7A5000;
+  --purple:#5500BB;
+  --t:#06102A;
+  --m:#2A3F6A;
+  --m2:#1A2D55;
+  --glow:0 0 16px rgba(0,60,180,0.12);
+  --glow2:0 0 16px rgba(0,40,140,0.12);
 }
 /* Cards get a subtle blue-tinted white */
 .light-mode .card{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
@@ -104,7 +104,7 @@ const CSS = `
 .light-mode .ti{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
 .light-mode .ti::before{background:linear-gradient(135deg,rgba(0,60,180,0.03),transparent);}
 .light-mode .ti:hover{border-color:rgba(0,60,180,0.2);}
-.light-mode .tbdg.p{background:rgba(0,60,180,0.06);color:#6078AA;}
+.light-mode .tbdg.p{background:rgba(0,60,180,0.08);color:#2A3F6A;}
 .light-mode .tbdg.d{background:rgba(0,80,200,0.1);color:#0044BB;}
 /* Blueprint rows */
 .light-mode .bpr{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
@@ -139,10 +139,10 @@ const CSS = `
 .light-mode .exrp{background:rgba(0,80,200,0.1);color:#0044BB;}
 .light-mode .ex-section-title{color:#4060A0;}
 /* Sidebar nav */
-.light-mode .ni{color:#6078AA;}
+.light-mode .ni{color:#2A3F6A;}
 .light-mode .ni:hover{background:rgba(0,60,180,0.04);color:#0A1535;}
 .light-mode .ni.on{color:#0055DD;border-left-color:#0055DD;background:rgba(0,80,200,0.05);}
-.light-mode .ns{color:#90A8CC;}
+.light-mode .ns{color:#4A5E88;}
 .light-mode .wbadge{background:rgba(200,0,0,0.06);color:#CC2200;border-color:rgba(200,0,0,0.15);}
 .light-mode .wbadge.ok{background:rgba(0,80,200,0.06);color:#0044BB;border-color:rgba(0,80,200,0.15);}
 /* Subnav */
@@ -155,7 +155,7 @@ const CSS = `
 .light-mode .cc{background:rgba(80,0,200,0.09);color:#5500BB;}
 .light-mode .cb{background:rgba(180,0,0,0.08);color:#AA2200;}
 .light-mode .co{background:rgba(0,140,80,0.09);color:#006040;}
-.light-mode .cr{background:rgba(0,60,180,0.05);color:#6078AA;}
+.light-mode .cr{background:rgba(0,60,180,0.07);color:#2A3F6A;}
 /* Buttons */
 .light-mode .bp{background:linear-gradient(135deg,#0066EE,#0044BB);color:#FFFFFF;}
 .light-mode .bp:hover{filter:brightness(1.06);}
@@ -196,7 +196,7 @@ const CSS = `
 /* Mob header */
 .light-mode .mob-header{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
 .light-mode .mob-logo em{background:linear-gradient(135deg,#0055DD,#0033AA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.light-mode .mob-date{color:#6078AA;}
+.light-mode .mob-date{color:#2A3F6A;}
 .light-mode .mob-streak{background:rgba(0,80,200,0.08);border-color:rgba(0,80,200,0.18);color:#0044BB;}
 .light-mode .mob-wbadge.ok{background:#0055DD;box-shadow:0 0 5px rgba(0,80,200,0.4);}
 .light-mode .mob-wbadge.err{background:#CC2200;}
@@ -206,10 +206,21 @@ const CSS = `
 .light-mode ::-webkit-scrollbar-thumb{background:#C0D0EE;}
 /* Bottom nav */
 .light-mode .mnav{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
-.light-mode .mni-lbl{color:#6078AA;}
+.light-mode .mni-lbl{color:#2A3F6A;}
 .light-mode .mni.on .mni-lbl{color:#0055DD;}
 .light-mode .mni:active{background:rgba(0,60,180,0.04);}
 .light-mode .tdot{background:#0055DD;box-shadow:0 0 5px rgba(0,80,200,0.5);}
+.light-mode .bpday{color:#06102A;}
+.light-mode .bpdate{color:#2A3F6A;}
+.light-mode .bptyp{color:#06102A;}
+.light-mode .goal-date{color:#2A3F6A;}
+.light-mode .note-meta{color:#2A3F6A;}
+.light-mode .sr-desc{color:#2A3F6A;}
+.light-mode .tdsc{color:#2A3F6A;}
+.light-mode .ms{color:#2A3F6A;}
+.light-mode .pdate{color:#2A3F6A;}
+.light-mode .mob-wbadge.ok{background:#0044CC;box-shadow:0 0 5px rgba(0,60,200,0.4);}
+
 html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow:hidden}
 ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
 
@@ -452,6 +463,67 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--font
 .dots span{width:4px;height:4px;border-radius:50%;background:var(--a);animation:bop 1.1s infinite}
 .dots span:nth-child(2){animation-delay:.18s}.dots span:nth-child(3){animation-delay:.36s}
 @keyframes bop{0%,80%,100%{transform:scale(0.5)}40%{transform:scale(1)}}
+
+/* ── Animations ── */
+@keyframes fadeup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@keyframes slideright{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+@keyframes popin{from{opacity:0;transform:scale(0.92)}to{opacity:1;transform:scale(1)}}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* Tab content fades in on switch */
+.tab-content > *{animation:fadeup .22s ease}
+
+/* Cards animate in staggered */
+.card{animation:fadeup .2s ease}
+.ti{animation:slideright .18s ease}
+.ti:nth-child(2){animation-delay:.04s}
+.ti:nth-child(3){animation-delay:.08s}
+.bpr{animation:slideright .16s ease}
+.bpr:nth-child(2){animation-delay:.03s}
+.bpr:nth-child(3){animation-delay:.06s}
+.bpr:nth-child(4){animation-delay:.09s}
+.bpr:nth-child(5){animation-delay:.12s}
+.bpr:nth-child(6){animation-delay:.15s}
+.bpr:nth-child(7){animation-delay:.18s}
+.goal-card{animation:fadeup .18s ease}
+.goal-card:nth-child(2){animation-delay:.05s}
+.goal-card:nth-child(3){animation-delay:.1s}
+.note-card{animation:fadeup .18s ease}
+.processed-note{animation:fadeup .25s ease}
+
+/* Sidebar nav items */
+.ni{transition:all .15s cubic-bezier(.4,0,.2,1)}
+.ni.on{animation:slideright .18s ease}
+
+/* Mobile nav icons bounce on tap */
+.mni{transition:background .15s}
+.mni.on .mni-ico{animation:popin .2s cubic-bezier(.34,1.56,.64,1)}
+
+/* Buttons press animation */
+.btn:active{transform:scale(0.97) translateY(1px)}
+.bp:active{transform:scale(0.97) translateY(1px)}
+
+/* AI box slides up */
+.aib{animation:fadeup .3s cubic-bezier(.4,0,.2,1)}
+
+/* Modal pops in */
+.modal{animation:popin .22s cubic-bezier(.34,1.2,.64,1)}
+
+/* Recovery ring draws in */
+.rc-ring svg circle:last-child{animation:fadein .8s ease}
+
+/* Streak banner slides up */
+.streak-banner{animation:fadeup .35s cubic-bezier(.4,0,.2,1)}
+
+/* Skeleton loading shimmer */
+.skeleton{
+  background:linear-gradient(90deg,var(--bg3) 25%,var(--bg4) 50%,var(--bg3) 75%);
+  background-size:200% 100%;
+  animation:shimmer 1.5s infinite;
+  border-radius:6px;
+}
+
 .err-banner{padding:8px 12px;background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.18);
   border-radius:8px;font-size:12px;color:var(--warn);margin-bottom:10px}
 .cs-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -1480,15 +1552,29 @@ function SettingsTab({ onReset, lightMode, toggleLight }) {
 }
 
 // ─── Schedule Upload Modal ────────────────────────────────────────────────────
-function getNextWeekStart() {
-  const d = new Date();
-  d.setDate(d.getDate() + (7 - d.getDay() + 1) % 7 || 7); // next Monday
+// Auto-detect which week a schedule upload is for.
+// Logic: if today is Thu/Fri/Sat/Sun → almost certainly planning next week
+//        if today is Mon/Tue/Wed → could be this week still
+// Always computes the correct Monday-based week start.
+function autoDetectWeekStart() {
+  const today = new Date();
+  const dow = today.getDay(); // 0=Sun,1=Mon...6=Sat
+  // If Fri(5), Sat(6), Sun(0), or Thu(4) → next week
+  const daysUntilNextMonday = dow === 0 ? 1 : 8 - dow;
+  const planningNextWeek = dow >= 4 || dow === 0;
+  const d = new Date(today);
+  if (planningNextWeek) {
+    d.setDate(today.getDate() + daysUntilNextMonday);
+  } else {
+    // This week's Monday
+    d.setDate(today.getDate() + (dow === 0 ? -6 : 1 - dow));
+  }
   const y = d.getFullYear();
   const m = String(d.getMonth()+1).padStart(2,"0");
   const day = String(d.getDate()).padStart(2,"0");
   return `${y}-${m}-${day}`;
 }
-function formatWeekLabel(ws) {
+function weekRangeLabel(ws) {
   const d = new Date(ws + "T12:00:00");
   const end = new Date(ws + "T12:00:00");
   end.setDate(end.getDate() + 6);
@@ -1497,9 +1583,7 @@ function formatWeekLabel(ws) {
 }
 
 function ScheduleUploadModal({ weekStartDate, onClose }) {
-  const thisWeek = weekStartDate;
-  const nextWeek = getNextWeekStart();
-  const [targetWeek, setTargetWeek] = useState(nextWeek); // default = next week
+  const targetWeek = autoDetectWeekStart();
   const [mode, setMode]         = useState("text");
   const [schedText, setSchedText] = useState("");
   const [file, setFile]         = useState(null);
@@ -1564,23 +1648,14 @@ function ScheduleUploadModal({ weekStartDate, onClose }) {
         </div>
 
         <div className="mb">
-          {/* Week selector */}
-          <div style={{marginBottom:12}}>
-            <div style={{fontSize:10,fontWeight:700,color:"var(--m)",letterSpacing:"1.5px",
-              textTransform:"uppercase",marginBottom:7}}>Which week is this schedule for?</div>
-            <div style={{display:"flex",gap:7}}>
-              {[{label:"This week", sublabel:formatWeekLabel(thisWeek), val:thisWeek},
-                {label:"Next week", sublabel:formatWeekLabel(nextWeek), val:nextWeek}
-              ].map(opt=>(
-                <div key={opt.val} onClick={()=>{setTargetWeek(opt.val);setResult(null);}}
-                  style={{flex:1,padding:"9px 11px",borderRadius:9,cursor:"pointer",
-                    border: targetWeek===opt.val ? "2px solid var(--a)" : "1px solid var(--b)",
-                    background: targetWeek===opt.val ? "rgba(92,255,176,0.05)" : "var(--bg3)",
-                    transition:"all .15s"}}>
-                  <div style={{fontSize:12,fontWeight:700,color: targetWeek===opt.val ? "var(--a)" : "var(--t)"}}>{opt.label}</div>
-                  <div style={{fontSize:10,color:"var(--m)",fontFamily:"var(--mono)",marginTop:2}}>{opt.sublabel}</div>
-                </div>
-              ))}
+          {/* Auto-detected week label */}
+          <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 11px",
+            background:"var(--bg3)",borderRadius:9,marginBottom:11,
+            border:"1px solid var(--b)"}}>
+            <span style={{fontSize:18}}>📅</span>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:"var(--a)"}}>Auto-detected: {weekRangeLabel(targetWeek)}</div>
+              <div style={{fontSize:10,color:"var(--m)"}}>Based on today being {new Date().toLocaleDateString("en-US",{weekday:"long"})}</div>
             </div>
           </div>
 
