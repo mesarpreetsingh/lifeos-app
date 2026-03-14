@@ -854,18 +854,14 @@ function RecoveryRing({ score }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 function TodayTab({ streak, weekPlan }) {
   const today = todayStr();
+  const [sec, setSec]                 = useState("today");
   const [dayData, setDayData]         = useState(null);
   const [loading, setLoading]         = useState(true);
   const [uploadOpen, setUploadOpen]   = useState(false);
   const [workoutOpen, setWorkoutOpen] = useState(false);
 
   const onAnalysisDone = (res) => {
-    // Immediately update dayData with fresh analysis + score — no reload needed
-    setDayData(d => ({
-      ...(d || {}),
-      combined_analysis: res.analysis,
-      recovery_score: res.recovery_score,
-    }));
+    setDayData(d => ({...(d||{}), combined_analysis:res.analysis, recovery_score:res.recovery_score}));
     setUploadOpen(false);
   };
 
@@ -878,8 +874,6 @@ function TodayTab({ streak, weekPlan }) {
   useEffect(() => { load(); }, [load]);
 
   const ws = weekStart(today);
-  // Match today's plan by day NAME — not array index.
-  // Handles AI plans that start from Sunday or Monday.
   const todayDayAbbr = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][new Date().getDay()];
   const todayPlan = weekPlan?.fitness?.days?.find(d =>
     d.day && (d.day.slice(0,3) === todayDayAbbr)
@@ -894,48 +888,114 @@ function TodayTab({ streak, weekPlan }) {
       done: !!dayData?.workout_completed },
   ];
 
-  if (loading) return (
-    <div className="cnt" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:200}}><Dots/></div>
-  );
+  const SECS = [{id:"today",l:"Today"},{id:"schedule",l:"This Week"}];
 
   return (
-    <div className="cnt">
-      {streak?.count>0 && (
-        <div className="streak-banner">
-          <span style={{fontSize:20}}>🔥</span>
-          <div><div className="streak-count">{streak.count}</div>
-          <div style={{fontSize:9,color:"var(--m2)"}}>day streak</div></div>
-          {streak.message && <div className="streak-msg">{streak.message}</div>}
+    <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0,overflow:"hidden"}}>
+      <div className="subnav">
+        {SECS.map(s=><div key={s.id} className={"sni"+(sec===s.id?" on":"")} onClick={()=>setSec(s.id)}>{s.l}</div>)}
+      </div>
+      <div style={{flex:1,overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch"}}>
+        <div className="cnt">
+
+          {sec==="today" && <>
+            {loading
+              ? <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:160}}><Dots/></div>
+              : <>
+                  {streak?.count>0 && (
+                    <div className="streak-banner">
+                      <span style={{fontSize:20}}>🔥</span>
+                      <div><div className="streak-count">{streak.count}</div>
+                      <div style={{fontSize:9,color:"var(--m2)"}}>day streak</div></div>
+                      {streak.message && <div className="streak-msg">{streak.message}</div>}
+                    </div>
+                  )}
+                  <RecoveryRingFromData dayData={dayData}/>
+                  <div className="tgl">Fitness</div>
+                  {tasks.map(t => (
+                    <div key={t.id} className={"ti"+(t.done?" done":"")}
+                      onClick={()=>{
+                        if(t.done)return;
+                        if(t.id==="daily") setUploadOpen(true);
+                        if(t.id==="workout") setWorkoutOpen(true);
+                      }}>
+                      <div className="tic">{t.icon}</div>
+                      <div className="tinfo">
+                        <div className="tlbl">{t.label}</div>
+                        <div className="tdsc">{t.desc}</div>
+                      </div>
+                      <span className={"tbdg "+(t.done?"d":"p")}>{t.done?"Done ✓":"Tap"}</span>
+                      {!t.done && <span style={{color:"var(--a)",fontSize:15}}>›</span>}
+                    </div>
+                  ))}
+                  {dayData?.combined_analysis && <AiBox label="Day Observation" text={dayData.combined_analysis}/>}
+                </>
+            }
+          </>}
+
+          {sec==="schedule" && <WeekScheduleView weekPlan={weekPlan} weekStartDate={ws}/>}
+
         </div>
-      )}
-
-      <RecoveryRingFromData dayData={dayData}/>
-
-      <div className="tgl">Fitness</div>
-      {tasks.map(t => (
-        <div key={t.id} className={"ti"+(t.done?" done":"")}
-          onClick={()=>{
-            if(t.done)return;
-            if(t.id==="daily") setUploadOpen(true);
-            if(t.id==="workout") setWorkoutOpen(true);
-          }}>
-          <div className="tic">{t.icon}</div>
-          <div className="tinfo">
-            <div className="tlbl">{t.label}</div>
-            <div className="tdsc">{t.desc}</div>
-          </div>
-          <span className={"tbdg "+(t.done?"d":"p")}>{t.done?"Done ✓":"Tap"}</span>
-          {!t.done && <span style={{color:"var(--a)",fontSize:15}}>›</span>}
-        </div>
-      ))}
-
-      {dayData?.combined_analysis && <AiBox label="Day Observation" text={dayData.combined_analysis}/>}
+      </div>
 
       {uploadOpen && <DailyUploadModal today={today} todayPlan={todayPlan}
         onClose={()=>{setUploadOpen(false);load();}}
         onDone={onAnalysisDone}/>}
       {workoutOpen && <DayDetailModal day={todayPlan||{day:"Today",session_name:"No Plan"}}
         weekStartDate={ws} onClose={()=>{setWorkoutOpen(false);load();}}/>}
+    </div>
+  );
+}
+
+// Reusable week schedule view — used in both HomeTab and FitnessTab
+function WeekScheduleView({ weekPlan, weekStartDate, onDaySelect }) {
+  const days = weekPlan?.fitness?.days || [];
+  const ctxCls = c=>c?.includes("Work")&&c?.includes("College")?"cb":c==="Work"?"cw":c==="College"?"cc":c==="Off"?"co":"cr";
+  const [selectedDay, setSelectedDay] = useState(null);
+
+  if (days.length === 0) {
+    return (
+      <div className="empty-state">
+        <div style={{fontSize:28,marginBottom:8}}>📅</div>
+        No schedule for this week yet.<br/>
+        <span style={{fontSize:11}}>Go to Settings → Upload Schedule to generate it.</span>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+        <div style={{fontSize:13,fontWeight:700}}>
+          {weekPlan?.fitness ? `Week ${weekPlan.fitness.week_number||1}` : "This Week"}
+        </div>
+        <div style={{fontSize:10,color:"var(--m)",fontFamily:"var(--mono)"}}>
+          {weekStartDate ? weekRangeLabel(weekStartDate) : ""}
+        </div>
+      </div>
+      {days.map((day,i)=>{
+        const isToday = weekStartDate ? isTodayDay(weekStartDate,day.day) : false;
+        const dateLabel = day.date_label || (weekStartDate ? dayDateLabel(weekStartDate,day.day) : day.day);
+        const shortDate = dateLabel.replace(/\w+,\s*/,"");
+        return (
+          <div key={i} className={"bpr"+(day.is_rest?" rest":"")+(isToday?" today":"")}
+            onClick={()=>!day.is_rest&&setSelectedDay(day)}>
+            {isToday&&<div className="tdot"/>}
+            <div className="bp-date-col">
+              <div className="bpday">{day.day}</div>
+              <div className="bpdate">{shortDate}</div>
+            </div>
+            <div className={"bpctx "+ctxCls(day.context)}>{day.context||"—"}</div>
+            <div className="bptyp">{day.session_name||(day.is_rest?"Rest Day":"—")}</div>
+            <div className="bpwin">{day.time_window}</div>
+            {!day.is_rest&&<span style={{color:"var(--a)",fontSize:15,marginLeft:2}}>›</span>}
+          </div>
+        );
+      })}
+      {selectedDay && (
+        <DayDetailModal day={selectedDay} weekStartDate={weekStartDate}
+          onClose={()=>setSelectedDay(null)}/>
+      )}
     </div>
   );
 }
@@ -1107,12 +1167,76 @@ function DayDetailModal({ day, weekStartDate, onClose }) {
   );
 }
 
+// Fetches and displays a specific week's plan by week_start date
+function WeekScheduleViewById({ weekStart: ws, currentWeekStart }) {
+  const [plan, setPlan]           = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [selectedDay, setSelectedDay] = useState(null);
+
+  useEffect(()=>{
+    setLoading(true);
+    api(`/data/week/${ws}`)
+      .then(p=>{ setPlan(p); setLoading(false); })
+      .catch(()=>{ setPlan(null); setLoading(false); });
+  },[ws]);
+
+  if (loading) return <div style={{textAlign:"center",padding:"20px"}}><Dots/></div>;
+
+  const days = plan?.fitness?.days || [];
+  const ctxCls = c=>c?.includes("Work")&&c?.includes("College")?"cb":c==="Work"?"cw":c==="College"?"cc":c==="Off"?"co":"cr";
+  const isCurrent = ws === currentWeekStart;
+
+  if (days.length === 0) return (
+    <div className="empty-state">No plan data for this week.</div>
+  );
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+        <div style={{fontSize:12,fontWeight:700}}>
+          {plan?.fitness?.week_number ? `Week ${plan.fitness.week_number}` : "Week"}
+        </div>
+        {isCurrent && <span style={{fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:4,
+          background:"rgba(92,255,176,0.1)",color:"var(--a)"}}>CURRENT</span>}
+        <div style={{fontSize:10,color:"var(--m)",fontFamily:"var(--mono)",marginLeft:"auto"}}>
+          {weekRangeLabel(ws)}
+        </div>
+      </div>
+      {days.map((day,i)=>{
+        const isToday = isCurrent && isTodayDay(ws, day.day);
+        const dateLabel = day.date_label || dayDateLabel(ws, day.day);
+        const shortDate = dateLabel.replace(/\w+,\s*/, "");
+        return (
+          <div key={i} className={"bpr"+(day.is_rest?" rest":"")+(isToday?" today":"")}
+            onClick={()=>!day.is_rest&&setSelectedDay(day)}>
+            {isToday&&<div className="tdot"/>}
+            <div className="bp-date-col">
+              <div className="bpday">{day.day}</div>
+              <div className="bpdate">{shortDate}</div>
+            </div>
+            <div className={"bpctx "+ctxCls(day.context)}>{day.context||"—"}</div>
+            <div className="bptyp">{day.session_name||(day.is_rest?"Rest Day":"—")}</div>
+            <div className="bpwin">{day.time_window}</div>
+            {!day.is_rest&&<span style={{color:"var(--a)",fontSize:15,marginLeft:2}}>›</span>}
+          </div>
+        );
+      })}
+      {selectedDay && (
+        <DayDetailModal day={selectedDay} weekStartDate={ws}
+          onClose={()=>setSelectedDay(null)}/>
+      )}
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // FITNESS TAB — Blueprint, Review, Monthly, Goals. No schedule upload here.
 // ═══════════════════════════════════════════════════════════════════════════════
 function FitnessTab() {
   const [sec, setSec]                   = useState("blueprint");
   const [weekPlan, setWeekPlan]         = useState(null);
+  const [allWeeks, setAllWeeks]         = useState([]); // all uploaded weeks
+  const [viewWeek, setViewWeek]         = useState(null); // which week to display
   const [loading, setLoading]           = useState(true);
   const [selectedDay, setSelectedDay]   = useState(null);
   const [compOpen, setCompOpen]         = useState(false);
@@ -1125,15 +1249,24 @@ function FitnessTab() {
   const ws = weekStart(todayStr());
 
   const load = useCallback(async () => {
-    try { const p=await api(`/data/week/${ws}`); setWeekPlan(p); }
-    catch { setWeekPlan(null); }
+    try {
+      const [p, weeks] = await Promise.all([
+        api(`/data/week/${ws}`),
+        api(`/data/all-weeks`),
+      ]);
+      setWeekPlan(p);
+      setAllWeeks(weeks.weeks || []);
+      setViewWeek(w => w || ws); // default to current week
+    } catch {
+      setWeekPlan(null);
+      setAllWeeks([]);
+    }
     setLoading(false);
   }, [ws]);
 
   useEffect(()=>{load();},[load]);
 
-  const days   = weekPlan?.fitness?.days||[];
-  const ctxCls = c=>c?.includes("Work")&&c?.includes("College")?"cb":c==="Work"?"cw":c==="College"?"cc":c==="Off"?"co":"cr";
+  // days and ctxCls are now inside WeekScheduleView / WeekScheduleViewById
 
   const generateReview = async () => {
     setReviewLoading(true);
@@ -1161,44 +1294,43 @@ function FitnessTab() {
 
           {sec==="blueprint"&&(
             <div>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:13,flexWrap:"wrap",gap:8}}>
-                <div>
-                  <div style={{fontSize:13,fontWeight:700}}>This Week's Plan</div>
-                  <div style={{fontSize:10,color:"var(--m)",marginTop:1,fontFamily:"var(--mono)"}}>
-                    {weekPlan?.fitness?`Week ${weekPlan.fitness.week_number||1} · Tap any day for details`:"Upload schedule in Settings"}
-                  </div>
-                </div>
-              </div>
-
               {loading&&<div style={{textAlign:"center",padding:"30px",color:"var(--m)"}}><Dots/></div>}
 
-              {!loading&&!weekPlan?.fitness&&(
+              {!loading&&allWeeks.length===0&&(
                 <div className="empty-state">
                   <div style={{fontSize:30,marginBottom:8}}>📅</div>
-                  No plan yet.<br/>
-                  <span style={{fontSize:11}}>Go to Settings → Upload Schedule to generate this week's workouts.</span>
+                  No schedule uploaded yet.<br/>
+                  <span style={{fontSize:11}}>Go to Settings → Upload Schedule.</span>
                 </div>
               )}
 
-              {days.map((day,i)=>{
-                const isToday=isTodayDay(ws,day.day);
-                const dateLabel=day.date_label||dayDateLabel(ws,day.day);
-                const shortDate=dateLabel.replace(/\w+,\s*/,"");
-                return (
-                  <div key={i} className={"bpr"+(day.is_rest?" rest":"")+(isToday?" today":"")}
-                    onClick={()=>!day.is_rest&&setSelectedDay(day)}>
-                    {isToday&&<div className="tdot"/>}
-                    <div className="bp-date-col">
-                      <div className="bpday">{day.day}</div>
-                      <div className="bpdate">{shortDate}</div>
-                    </div>
-                    <div className={"bpctx "+ctxCls(day.context)}>{day.context||"—"}</div>
-                    <div className="bptyp">{day.session_name||(day.is_rest?"Rest Day":"—")}</div>
-                    <div className="bpwin">{day.time_window}</div>
-                    {!day.is_rest&&<span style={{color:"var(--a)",fontSize:15,marginLeft:2}}>›</span>}
+              {/* Week selector pills */}
+              {!loading&&allWeeks.length>0&&(
+                <div style={{marginBottom:13}}>
+                  <div style={{fontSize:9,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",
+                    color:"var(--m)",marginBottom:8}}>All uploaded weeks</div>
+                  <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+                    {allWeeks.map(wk=>(
+                      <div key={wk.week_start}
+                        onClick={()=>setViewWeek(wk.week_start)}
+                        style={{padding:"6px 11px",borderRadius:8,cursor:"pointer",
+                          fontSize:11,fontWeight:700,fontFamily:"var(--mono)",
+                          border: viewWeek===wk.week_start ? "2px solid var(--a)" : "1px solid var(--b)",
+                          background: viewWeek===wk.week_start ? "rgba(92,255,176,0.06)" : "var(--bg3)",
+                          color: viewWeek===wk.week_start ? "var(--a)" : "var(--m2)",
+                          transition:"all .15s"}}>
+                        {weekRangeLabel(wk.week_start)}
+                        {wk.week_start===ws&&<span style={{marginLeft:5,fontSize:9,color:"var(--a)"}}>●</span>}
+                      </div>
+                    ))}
                   </div>
-                );
-              })}
+                </div>
+              )}
+
+              {/* Selected week plan */}
+              {!loading&&viewWeek&&(
+                <WeekScheduleViewById weekStart={viewWeek} currentWeekStart={ws}/>
+              )}
             </div>
           )}
 
@@ -1251,10 +1383,7 @@ function FitnessTab() {
         </div>
       </div>
 
-      {selectedDay&&(
-        <DayDetailModal day={selectedDay} weekStartDate={ws}
-          onClose={()=>setSelectedDay(null)} onComplete={()=>{setSelectedDay(null);load();}}/>
-      )}
+      {/* Day detail is now handled inside WeekScheduleViewById */}
       {compOpen&&(
         <BodyCompModal weekStartDate={ws} onClose={()=>setCompOpen(false)}
           onDone={r=>{setCompResult(r);setCompOpen(false);}}/>
@@ -1715,6 +1844,7 @@ function ScheduleUploadModal({ weekStartDate, onClose }) {
   const [prev, setPrev]         = useState(null);
   const [loading, setLoading]   = useState(false);
   const [result, setResult]     = useState(null);
+  const [duplicate, setDuplicate] = useState(null); // set when same schedule detected
   const [err, setErr]           = useState(null);
   const ref = useRef();
 
@@ -1740,7 +1870,28 @@ function ScheduleUploadModal({ weekStartDate, onClose }) {
         method: "POST",
         body: JSON.stringify(body),
       });
+
+      // Duplicate detection response
+      if (res.duplicate) {
+        setDuplicate(res.message);
+        setLoading(false);
+        return;
+      }
       setResult(res.reasoning || "Plan generated successfully.");
+    } catch(e) { setErr(e.message); }
+    setLoading(false);
+  };
+
+  const forceRegenerate = async () => {
+    setDuplicate(null); setLoading(true); setErr(null);
+    try {
+      const body = mode === "text"
+        ? { week_start: targetWeek, schedule_text: schedText.trim(), module: "fitness", force: true }
+        : { week_start: targetWeek, schedule_image: await new Promise((res,rej)=>{
+            const r=new FileReader();r.onload=()=>res({data:r.result.split(",")[1],type:file.type});r.onerror=rej;r.readAsDataURL(file);
+          }), module: "fitness", force: true };
+      const res = await api("/workout/generate-week", { method:"POST", body:JSON.stringify(body) });
+      setResult(res.reasoning || "Plan updated.");
     } catch(e) { setErr(e.message); }
     setLoading(false);
   };
@@ -1825,6 +1976,26 @@ function ScheduleUploadModal({ weekStartDate, onClose }) {
             </div>
           )}
 
+          {duplicate && (
+            <div style={{background:"rgba(255,209,102,0.1)",border:"1px solid rgba(255,209,102,0.3)",
+              borderRadius:9,padding:"11px 13px",marginBottom:10}}>
+              <div style={{fontSize:11,fontWeight:700,color:"var(--gold)",marginBottom:5}}>
+                ⚠ Same schedule detected
+              </div>
+              <div style={{fontSize:12,color:"var(--m2)",lineHeight:1.6,marginBottom:10}}>
+                {duplicate}
+              </div>
+              <div style={{fontSize:11,color:"var(--m2)",marginBottom:8}}>
+                Your existing plan is unchanged. Want to regenerate anyway?
+              </div>
+              <div style={{display:"flex",gap:7}}>
+                <button className="btn bs bsm" onClick={()=>setDuplicate(null)}>Keep Existing</button>
+                <button className="btn bp bsm" onClick={forceRegenerate} disabled={loading}>
+                  {loading?<Dots/>:"Regenerate Anyway"}
+                </button>
+              </div>
+            </div>
+          )}
           <Err msg={err}/>
 
           {result && (
@@ -1930,7 +2101,7 @@ function SkillsTab() {
 // NAV
 // ═══════════════════════════════════════════════════════════════════════════════
 const NAV = [
-  { id:"home",     icon:"🏠", label:"Today",   built:true  },
+  { id:"home",     icon:"🏠", label:"Home",    built:true  },
   { id:"fitness",  icon:"🏋️", label:"Fitness", built:true  },
   { id:"notes",    icon:"📝", label:"Notes",   built:true  },
   { id:"hobbies",  icon:"🎨", label:"Hobbies", built:false },
@@ -2017,7 +2188,7 @@ export default function App() {
   if(!authed) return <LoginScreen onLogin={()=>setAuthed(true)}/>;
 
   const todayLabel=new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
-  const TITLES={home:["Today's"," Tasks"],fitness:["Fit","ness"],notes:["My ","Notes"],
+  const TITLES={home:["My ","Home"],fitness:["Fit","ness"],notes:["My ","Notes"],
     hobbies:["Hob","bies"],skills:["My ","Skills"],settings:["Set","tings"]};
 
   return (
