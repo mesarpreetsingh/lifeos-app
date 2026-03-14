@@ -805,6 +805,16 @@ function TodayTab({ streak, weekPlan }) {
   const [uploadOpen, setUploadOpen]   = useState(false);
   const [workoutOpen, setWorkoutOpen] = useState(false);
 
+  const onAnalysisDone = (res) => {
+    // Immediately update dayData with fresh analysis + score — no reload needed
+    setDayData(d => ({
+      ...(d || {}),
+      combined_analysis: res.analysis,
+      recovery_score: res.recovery_score,
+    }));
+    setUploadOpen(false);
+  };
+
   const load = useCallback(async () => {
     try { const d = await api(`/data/day/${today}`); setDayData(d); }
     catch { setDayData(null); }
@@ -868,7 +878,8 @@ function TodayTab({ streak, weekPlan }) {
       {dayData?.combined_analysis && <AiBox label="Day Observation" text={dayData.combined_analysis}/>}
 
       {uploadOpen && <DailyUploadModal today={today} todayPlan={todayPlan}
-        onClose={()=>{setUploadOpen(false);load();}}/>}
+        onClose={()=>{setUploadOpen(false);load();}}
+        onDone={onAnalysisDone}/>}
       {workoutOpen && <DayDetailModal day={todayPlan||{day:"Today",session_name:"No Plan"}}
         weekStartDate={ws} onClose={()=>{setWorkoutOpen(false);load();}}/>}
     </div>
@@ -878,7 +889,7 @@ function TodayTab({ streak, weekPlan }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // DAILY UPLOAD MODAL
 // ═══════════════════════════════════════════════════════════════════════════════
-function DailyUploadModal({ today, todayPlan, onClose }) {
+function DailyUploadModal({ today, todayPlan, onClose, onDone }) {
   const [sf, setSf]=useState(null); const [sp,setSp]=useState(null);
   const [af, setAf]=useState(null); const [ap,setAp]=useState(null);
   const [loading, setLoading]=useState(false);
@@ -896,6 +907,7 @@ function DailyUploadModal({ today, todayPlan, onClose }) {
         yesterday_schedule:todayPlan?JSON.stringify(todayPlan):"No schedule yet"
       })});
       setResult(res.analysis);
+      if (onDone) onDone(res); // immediately update parent with score
     }catch(e){setErr(e.message);}
     setLoading(false);
   };
