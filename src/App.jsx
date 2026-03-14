@@ -10,7 +10,10 @@ if (localStorage.getItem("lifeos_light") === "true") {
 const INACTIVITY_MS = 5 * 60 * 1000;
 
 function getToken()       { return localStorage.getItem("lifeos_token") || ""; }
-function stampActivity()  { localStorage.setItem("lifeos_last_active", Date.now()); }
+function stampActivity()  {
+  localStorage.setItem("lifeos_last_active", Date.now());
+  localStorage.removeItem("lifeos_hidden_at"); // any activity cancels the hide timer
+}
 function isSessionExpired() {
   const last = parseInt(localStorage.getItem("lifeos_last_active") || "0");
   return last && (Date.now() - last > INACTIVITY_MS);
@@ -18,13 +21,23 @@ function isSessionExpired() {
 function clearSession() {
   localStorage.removeItem("lifeos_token");
   localStorage.removeItem("lifeos_last_active");
+  localStorage.removeItem("lifeos_hidden_at");
 }
+
+// Global callback set by App — called when any request returns 401
+let onAuthFailure = null;
 
 async function api(path, options = {}) {
   const res = await fetch(`${WORKER_URL}${path}`, {
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}`, ...options.headers },
     ...options,
   });
+  if (res.status === 401) {
+    // Token expired or missing — clear session and trigger login screen
+    clearSession();
+    if (onAuthFailure) onAuthFailure();
+    throw new Error("Session expired — please log in again");
+  }
   if (!res.ok) {
     const e = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(e.error || "API error");
@@ -1930,6 +1943,10 @@ const NAV = [
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function App() {
   const [authed, setAuthed]     = useState(()=>!!localStorage.getItem("lifeos_token")&&!isSessionExpired());
+
+  // Wire the global auth failure handler so any 401 triggers the login screen
+  // This runs immediately on mount, before any API calls
+  onAuthFailure = () => setAuthed(false);
   const [tab, setTab]           = useState("home");
   const [workerOk, setWorkerOk] = useState(null);
   const [streak, setStreak]     = useState({count:0,message:""});
@@ -1963,14 +1980,26 @@ export default function App() {
     return()=>evts.forEach(e=>window.removeEventListener(e,h));
   },[authed]);
 
-  // Lock on close/hide
+  // Record when tab goes hidden — so inactivity timer knows how long we were away
   useEffect(()=>{
     if(!authed)return;
-    const onHide=()=>{if(document.visibilityState==="hidden")clearSession();};
-    const onUnload=()=>clearSession();
+    const onHide=()=>{
+      if(document.visibilityState==="hidden") {
+        // Just record the time — don't wipe the session
+        // The inactivity timer will handle expiry on next check
+        localStorage.setItem("lifeos_hidden_at", Date.now());
+      } else {
+        // Tab came back — check if too much time passed while hidden
+        const hiddenAt = parseInt(localStorage.getItem("lifeos_hidden_at") || "0");
+        if (hiddenAt && (Date.now() - hiddenAt > INACTIVITY_MS)) {
+          clearSession();
+          setAuthed(false);
+        }
+        localStorage.removeItem("lifeos_hidden_at");
+      }
+    };
     document.addEventListener("visibilitychange",onHide);
-    window.addEventListener("beforeunload",onUnload);
-    return()=>{document.removeEventListener("visibilitychange",onHide);window.removeEventListener("beforeunload",onUnload);};
+    return()=>document.removeEventListener("visibilitychange",onHide);
   },[authed]);
 
   useEffect(()=>{
