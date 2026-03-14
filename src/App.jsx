@@ -1133,7 +1133,6 @@ function FitnessTab() {
           {sec==="goals"&&<GoalsSection/>}
 
         </div>
-        </div>
       </div>
 
       {selectedDay&&(
