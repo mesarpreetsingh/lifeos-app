@@ -688,9 +688,59 @@ function LoginScreen({ onLogin }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 function Dots() { return <div className="dots"><span/><span/><span/></div>; }
 function Err({ msg }) { return msg ? <div className="err-banner">⚠ {msg}</div> : null; }
+function renderAI(text) {
+  if (!text) return null;
+  // Strip raw markdown and render cleanly
+  const lines = text.split('\n');
+  const elements = [];
+  let key = 0;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) { elements.push(<br key={key++}/>); continue; }
+    // Section headers: lines ending with : that are short, or ALL CAPS words
+    if (/^[A-Z][A-Z\s\/]+:/.test(trimmed) && trimmed.length < 50) {
+      elements.push(
+        <div key={key++} style={{fontSize:9,fontWeight:700,letterSpacing:"1.5px",
+          textTransform:"uppercase",color:"var(--a)",marginTop:10,marginBottom:3}}>
+          {trimmed.replace(/:$/, '')}
+        </div>
+      );
+      continue;
+    }
+    // Convert **bold** to <strong>
+    const parts = trimmed.split(/(\*\*[^*]+\*\*)/g);
+    const rendered = parts.map((p, i) =>
+      p.startsWith('**') && p.endsWith('**')
+        ? <strong key={i} style={{color:"var(--t)",fontWeight:700}}>{p.slice(2,-2)}</strong>
+        : p
+    );
+    // Bullet lines
+    if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+      elements.push(
+        <div key={key++} style={{display:"flex",gap:7,marginBottom:3,paddingLeft:4}}>
+          <span style={{color:"var(--a)",flexShrink:0,marginTop:2}}>·</span>
+          <span style={{fontSize:12.5,lineHeight:1.7,color:"var(--m2)"}}>{rendered.slice(1)}</span>
+        </div>
+      );
+    } else {
+      elements.push(
+        <div key={key++} style={{fontSize:12.5,lineHeight:1.75,color:"var(--m2)",marginBottom:2}}>
+          {rendered}
+        </div>
+      );
+    }
+  }
+  return elements;
+}
+
 function AiBox({ label, text }) {
   if (!text) return null;
-  return <div className="aib"><div className="aib-t">✦ {label}</div><p>{text}</p></div>;
+  return (
+    <div className="aib">
+      <div className="aib-t">✦ {label}</div>
+      <div>{renderAI(text)}</div>
+    </div>
+  );
 }
 function ComingSoon({ icon, label, desc, items=[] }) {
   return (
