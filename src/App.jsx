@@ -78,23 +78,138 @@ const CSS = `
   --sb:220px;--mob-nav:62px;--mob-header:54px;
   --r:12px;
 }
-/* Light mode overrides */
+/* ── LIGHT MODE — Option D: Soft Blue ── */
 .light-mode{
-  --bg:#F4F4FF;--bg2:#FFFFFF;--bg3:#EEEEF8;--bg4:#E2E2F0;
-  --b:rgba(0,0,0,0.07);--b2:rgba(0,0,0,0.14);
-  --t:#0D0D20;--m:#8888AA;--m2:#5555777;
-  --glow:0 0 20px rgba(0,120,80,0.08);
-  --glow2:0 0 20px rgba(0,80,160,0.08);
+  --bg:#EEF4FF;
+  --bg2:#FFFFFF;
+  --bg3:#E0ECFF;
+  --bg4:#D0E0FF;
+  --b:rgba(0,60,180,0.09);
+  --b2:rgba(0,60,180,0.18);
+  --a:#0055DD;
+  --a2:#0033AA;
+  --warn:#CC2200;
+  --gold:#996600;
+  --purple:#6600CC;
+  --t:#0A1535;
+  --m:#6078AA;
+  --m2:#3A5088;
+  --glow:0 0 16px rgba(0,60,180,0.1);
+  --glow2:0 0 16px rgba(0,40,140,0.1);
 }
-.light-mode .aib{background:linear-gradient(135deg,rgba(0,180,100,.05),rgba(0,80,200,.03));}
-.light-mode .streak-banner{background:linear-gradient(135deg,rgba(0,160,90,.07),rgba(0,80,200,.04));}
-.light-mode .processed-note{background:linear-gradient(135deg,rgba(0,160,90,.05),rgba(0,80,200,.03));}
-.light-mode .ti::before{background:linear-gradient(135deg,rgba(0,160,90,.04),transparent);}
-.light-mode .ptitle em{background:linear-gradient(135deg,#00A060,#0055CC);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.light-mode .mob-logo em{background:linear-gradient(135deg,#00A060,#0055CC);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.light-mode .streak-count{background:linear-gradient(135deg,#00A060,#0055CC);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.light-mode .bp{background:linear-gradient(135deg,#00C878,#00A060);color:#fff;}
-.light-mode .bp:hover{filter:brightness(1.08);}
+/* Cards get a subtle blue-tinted white */
+.light-mode .card{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
+.light-mode .bg2,.light-mode .sb,.light-mode .mob-header{background:#FFFFFF;}
+/* Tasks */
+.light-mode .ti{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
+.light-mode .ti::before{background:linear-gradient(135deg,rgba(0,60,180,0.03),transparent);}
+.light-mode .ti:hover{border-color:rgba(0,60,180,0.2);}
+.light-mode .tbdg.p{background:rgba(0,60,180,0.06);color:#6078AA;}
+.light-mode .tbdg.d{background:rgba(0,80,200,0.1);color:#0044BB;}
+/* Blueprint rows */
+.light-mode .bpr{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
+.light-mode .bpr:hover{background:#F4F8FF;border-color:rgba(0,60,180,0.2);}
+.light-mode .bpr.today{background:#F0F6FF;border-color:rgba(0,80,200,0.3);box-shadow:0 0 14px rgba(0,60,180,0.08);}
+/* AI boxes */
+.light-mode .aib{background:#EAF2FF;border-color:rgba(0,80,200,0.18);}
+.light-mode .aib-t{color:#0044BB;}
+.light-mode .aib p{color:#2A3F70;}
+/* Streak */
+.light-mode .streak-banner{background:linear-gradient(135deg,rgba(0,60,180,0.07),rgba(0,40,140,0.04));border-color:rgba(0,80,200,0.2);}
+.light-mode .streak-count{background:linear-gradient(135deg,#0055DD,#0033AA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.light-mode .streak-sb{background:#E8F0FF;border-color:rgba(0,80,200,0.15);}
+.light-mode .streak-num{color:#0055DD;}
+/* Recovery ring */
+.light-mode .rc-wrap{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
+/* Notes */
+.light-mode .processed-note{background:#EAF2FF;border-color:rgba(0,80,200,0.15);}
+.light-mode .pn-meta{color:#0044BB;}
+.light-mode .pn-body{color:#2A3F70;}
+.light-mode .note-card{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
+/* Goals */
+.light-mode .goal-card{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
+.light-mode .goal-ai{background:#F0F6FF;color:#2A3F70;}
+.light-mode .goal-input{background:#FFFFFF;border-color:rgba(0,60,180,0.12);}
+/* Settings */
+.light-mode .setting-row{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
+.light-mode .danger-zone{background:rgba(200,0,0,0.03);border-color:rgba(200,0,0,0.12);}
+/* Workout detail */
+.light-mode .exr{background:#F0F6FF;}
+.light-mode .exr:hover{background:#E4EFFF;}
+.light-mode .exrp{background:rgba(0,80,200,0.1);color:#0044BB;}
+.light-mode .ex-section-title{color:#4060A0;}
+/* Sidebar nav */
+.light-mode .ni{color:#6078AA;}
+.light-mode .ni:hover{background:rgba(0,60,180,0.04);color:#0A1535;}
+.light-mode .ni.on{color:#0055DD;border-left-color:#0055DD;background:rgba(0,80,200,0.05);}
+.light-mode .ns{color:#90A8CC;}
+.light-mode .wbadge{background:rgba(200,0,0,0.06);color:#CC2200;border-color:rgba(200,0,0,0.15);}
+.light-mode .wbadge.ok{background:rgba(0,80,200,0.06);color:#0044BB;border-color:rgba(0,80,200,0.15);}
+/* Subnav */
+.light-mode .subnav{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
+.light-mode .sni{color:#6078AA;}
+.light-mode .sni:hover{color:#0A1535;}
+.light-mode .sni.on{color:#0055DD;border-bottom-color:#0055DD;}
+/* Context badges */
+.light-mode .cw{background:rgba(0,80,200,0.09);color:#004BB0;}
+.light-mode .cc{background:rgba(80,0,200,0.09);color:#5500BB;}
+.light-mode .cb{background:rgba(180,0,0,0.08);color:#AA2200;}
+.light-mode .co{background:rgba(0,140,80,0.09);color:#006040;}
+.light-mode .cr{background:rgba(0,60,180,0.05);color:#6078AA;}
+/* Buttons */
+.light-mode .bp{background:linear-gradient(135deg,#0066EE,#0044BB);color:#FFFFFF;}
+.light-mode .bp:hover{filter:brightness(1.06);}
+.light-mode .bs{background:#F0F6FF;border-color:rgba(0,60,180,0.15);color:#0A1535;}
+.light-mode .bs:hover{background:#E4EFFF;border-color:rgba(0,60,180,0.25);}
+.light-mode .bwarn{background:rgba(200,0,0,0.07);color:#CC2200;border-color:rgba(200,0,0,0.2);}
+/* Modals */
+.light-mode .modal{background:#FFFFFF;border-color:rgba(0,60,180,0.1);}
+.light-mode .mh{border-color:rgba(0,60,180,0.09);}
+.light-mode .mf{border-color:rgba(0,60,180,0.09);}
+.light-mode .mcl{background:#F0F6FF;color:#6078AA;}
+.light-mode .mcl:hover{background:#E4EFFF;color:#0A1535;}
+/* Upload zones */
+.light-mode .uz{border-color:rgba(0,60,180,0.2);}
+.light-mode .uz:hover{border-color:#0055DD;background:rgba(0,80,200,0.02);}
+.light-mode .upload-half:hover{border-color:#0055DD;}
+.light-mode .upload-half.has{border-color:rgba(0,80,200,0.4);background:rgba(0,80,200,0.04);}
+/* Inputs */
+.light-mode .ta,.light-mode .inp,.light-mode .sel{background:#FFFFFF;border-color:rgba(0,60,180,0.12);color:#0A1535;}
+.light-mode .ta:focus,.light-mode .inp:focus{border-color:rgba(0,80,200,0.4);box-shadow:0 0 0 3px rgba(0,80,200,0.07);}
+.light-mode .ta::placeholder,.light-mode .inp::placeholder{color:#90A8CC;}
+/* Dots loader */
+.light-mode .dots span{background:#0055DD;}
+/* Error */
+.light-mode .err-banner{background:rgba(200,0,0,0.06);border-color:rgba(200,0,0,0.18);color:#AA1100;}
+/* Coming soon */
+.light-mode .cs-item{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
+.light-mode .cs-badge{background:rgba(0,80,200,0.07);border-color:rgba(0,80,200,0.15);color:#0044BB;}
+/* Toggle */
+.light-mode .toggle{background:#D0DDEE;border-color:rgba(0,60,180,0.15);}
+.light-mode .toggle.on{background:#0055DD;}
+.light-mode .toggle.on .toggle-thumb{background:#FFFFFF;}
+/* AI box day note */
+.light-mode .bp-note{background:#F0F6FF;color:#2A3F70;}
+/* Week reasoning */
+.light-mode .week-reasoning{background:#EAF2FF;border-color:rgba(0,80,200,0.15);}
+.light-mode .reasoning-lbl{color:#0044BB;}
+/* Mob header */
+.light-mode .mob-header{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
+.light-mode .mob-logo em{background:linear-gradient(135deg,#0055DD,#0033AA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.light-mode .mob-date{color:#6078AA;}
+.light-mode .mob-streak{background:rgba(0,80,200,0.08);border-color:rgba(0,80,200,0.18);color:#0044BB;}
+.light-mode .mob-wbadge.ok{background:#0055DD;box-shadow:0 0 5px rgba(0,80,200,0.4);}
+.light-mode .mob-wbadge.err{background:#CC2200;}
+/* Topbar */
+.light-mode .ptitle em{background:linear-gradient(135deg,#0055DD,#0033AA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+/* Scrollbar */
+.light-mode ::-webkit-scrollbar-thumb{background:#C0D0EE;}
+/* Bottom nav */
+.light-mode .mnav{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
+.light-mode .mni-lbl{color:#6078AA;}
+.light-mode .mni.on .mni-lbl{color:#0055DD;}
+.light-mode .mni:active{background:rgba(0,60,180,0.04);}
+.light-mode .tdot{background:#0055DD;box-shadow:0 0 5px rgba(0,80,200,0.5);}
 html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow:hidden}
 ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
 
@@ -1358,7 +1473,7 @@ function SettingsTab({ onReset, lightMode, toggleLight }) {
         <ScheduleUploadModal weekStartDate={ws} onClose={()=>setSchedOpen(false)}/>
       )}
       {resetOpen&&(
-        <ResetModal onClose={()=>setResetOpen(false)} onReset={()=>{setResetOpen(false);onReset();}}/>
+        <ResetModal onClose={()=>setResetOpen(false)} onReset={()=>{ setResetOpen(false); onReset(); }}/>
       )}
     </div>
   );
@@ -1507,11 +1622,16 @@ function ResetModal({ onClose, onReset }) {
     setLoading(true);setErr(null);
     try {
       await api("/data/reset",{method:"POST"});
-      // Also clear local session
-      clearSession();
-      onReset();
-    }catch(e){setErr(e.message);}
-    setLoading(false);
+      // Small delay so React finishes any in-flight state updates
+      // before we wipe localStorage and force a re-render
+      setTimeout(() => {
+        clearSession();
+        onReset();
+      }, 200);
+    }catch(e){
+      setErr(e.message);
+      setLoading(false);
+    }
   };
 
   return (
