@@ -1480,8 +1480,27 @@ function SettingsTab({ onReset, lightMode, toggleLight }) {
 }
 
 // ─── Schedule Upload Modal ────────────────────────────────────────────────────
+function getNextWeekStart() {
+  const d = new Date();
+  d.setDate(d.getDate() + (7 - d.getDay() + 1) % 7 || 7); // next Monday
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function formatWeekLabel(ws) {
+  const d = new Date(ws + "T12:00:00");
+  const end = new Date(ws + "T12:00:00");
+  end.setDate(end.getDate() + 6);
+  const opts = { month:"short", day:"numeric" };
+  return d.toLocaleDateString("en-US", opts) + " – " + end.toLocaleDateString("en-US", opts);
+}
+
 function ScheduleUploadModal({ weekStartDate, onClose }) {
-  const [mode, setMode]         = useState("text"); // "text" or "image"
+  const thisWeek = weekStartDate;
+  const nextWeek = getNextWeekStart();
+  const [targetWeek, setTargetWeek] = useState(nextWeek); // default = next week
+  const [mode, setMode]         = useState("text");
   const [schedText, setSchedText] = useState("");
   const [file, setFile]         = useState(null);
   const [prev, setPrev]         = useState(null);
@@ -1498,16 +1517,15 @@ function ScheduleUploadModal({ weekStartDate, onClose }) {
     try {
       let body;
       if (mode === "text") {
-        body = { week_start: weekStartDate, schedule_text: schedText.trim(), module: "fitness" };
+        body = { week_start: targetWeek, schedule_text: schedText.trim(), module: "fitness" };
       } else {
-        // Convert image to base64
         const b64 = await new Promise((res, rej) => {
           const r = new FileReader();
           r.onload = () => res({ data: r.result.split(",")[1], type: file.type });
           r.onerror = rej;
           r.readAsDataURL(file);
         });
-        body = { week_start: weekStartDate, schedule_image: b64, module: "fitness" };
+        body = { week_start: targetWeek, schedule_image: b64, module: "fitness" };
       }
       const res = await api("/workout/generate-week", {
         method: "POST",
@@ -1546,6 +1564,26 @@ function ScheduleUploadModal({ weekStartDate, onClose }) {
         </div>
 
         <div className="mb">
+          {/* Week selector */}
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:10,fontWeight:700,color:"var(--m)",letterSpacing:"1.5px",
+              textTransform:"uppercase",marginBottom:7}}>Which week is this schedule for?</div>
+            <div style={{display:"flex",gap:7}}>
+              {[{label:"This week", sublabel:formatWeekLabel(thisWeek), val:thisWeek},
+                {label:"Next week", sublabel:formatWeekLabel(nextWeek), val:nextWeek}
+              ].map(opt=>(
+                <div key={opt.val} onClick={()=>{setTargetWeek(opt.val);setResult(null);}}
+                  style={{flex:1,padding:"9px 11px",borderRadius:9,cursor:"pointer",
+                    border: targetWeek===opt.val ? "2px solid var(--a)" : "1px solid var(--b)",
+                    background: targetWeek===opt.val ? "rgba(92,255,176,0.05)" : "var(--bg3)",
+                    transition:"all .15s"}}>
+                  <div style={{fontSize:12,fontWeight:700,color: targetWeek===opt.val ? "var(--a)" : "var(--t)"}}>{opt.label}</div>
+                  <div style={{fontSize:10,color:"var(--m)",fontFamily:"var(--mono)",marginTop:2}}>{opt.sublabel}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div style={{fontSize:11.5,color:"var(--m2)",marginBottom:11,lineHeight:1.65}}>
             Week 1 = baseline plan. Each week AI improves using your accumulated observations.
             Your commute times and preferences from Notes are applied automatically.
@@ -1664,7 +1702,10 @@ function ResetModal({ onClose, onReset }) {
         </div>
         <div className="mf">
           <button className="btn bs" onClick={onClose}>Cancel — Keep My Data</button>
-          <button className="btn bwarn" onClick={doReset} disabled={!confirmed||loading}>
+          <button className="btn bwarn" onClick={()=>{
+            if(!confirmed){setErr("Type RESET in capital letters to confirm.");return;}
+            doReset();
+          }} disabled={loading}>
             {loading?<><Dots/> Deleting…</>:"🗑 Delete Everything"}
           </button>
         </div>
@@ -1708,6 +1749,17 @@ export default function App() {
   const [weekPlan, setWeekPlan] = useState(null);
   const [lightMode, setLightMode] = useState(localStorage.getItem("lifeos_light")==="true");
   const toggleLight = () => { const n=!lightMode; setLightMode(n); localStorage.setItem("lifeos_light",String(n)); };
+
+  // Apply light mode to body/html so the background outside .app also changes
+  useEffect(()=>{
+    const bg = lightMode ? "#EEF4FF" : "#060610";
+    document.body.style.background = bg;
+    document.documentElement.style.background = bg;
+    return () => {
+      document.body.style.background = "";
+      document.documentElement.style.background = "";
+    };
+  },[lightMode]);
 
   // Inactivity lock
   useEffect(()=>{
