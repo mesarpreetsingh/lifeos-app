@@ -714,12 +714,12 @@ function renderAI(text) {
         ? <strong key={i} style={{color:"var(--t)",fontWeight:700}}>{p.slice(2,-2)}</strong>
         : p
     );
-    // Bullet lines
-    if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+    // Bullet lines — handle -, •, and * (single asterisk)
+    if (trimmed.startsWith('- ') || trimmed.startsWith('• ') || trimmed.startsWith('* ')) {
       elements.push(
         <div key={key++} style={{display:"flex",gap:7,marginBottom:3,paddingLeft:4}}>
           <span style={{color:"var(--a)",flexShrink:0,marginTop:2}}>·</span>
-          <span style={{fontSize:12.5,lineHeight:1.7,color:"var(--m2)"}}>{rendered.slice(1)}</span>
+          <span style={{fontSize:12.5,lineHeight:1.7,color:"var(--m2)"}}>{rendered.slice(trimmed.startsWith('* ') || trimmed.startsWith('- ') || trimmed.startsWith('• ') ? 1 : 0)}</span>
         </div>
       );
     } else {
@@ -855,7 +855,23 @@ function TodayTab({ streak, weekPlan }) {
         </div>
       )}
 
-      {dayData?.recovery_score && <RecoveryRing score={dayData.recovery_score}/>}
+      {(() => {
+        // Try DB score first, but if it's exactly 70 (old default) AND
+        // the analysis text has a different score, prefer the text score.
+        let score = dayData?.recovery_score || null;
+        if (dayData?.combined_analysis) {
+          const patterns = [
+            /RECOVERY SCORE[^\d]*(\d+)/i,
+            /recovery[^\d]*(\d+)\s*\/\s*100/i,
+            /score[^\d]*(\d+)\s*\/\s*100/i,
+          ];
+          for (const p of patterns) {
+            const m = dayData.combined_analysis.match(p);
+            if (m) { const n = parseInt(m[1]); if (n >= 0 && n <= 100) { score = n; break; } }
+          }
+        }
+        return score ? <RecoveryRing score={score}/> : null;
+      })()}
 
       <div className="tgl">Fitness</div>
       {tasks.map(t => (
