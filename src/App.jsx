@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
 const WORKER_URL = "https://lifeos-api.sarpreet5601.workers.dev";
+
+// Apply light mode class to <html> immediately on load — before any render
+// This prevents flash of wrong theme
+if (localStorage.getItem("lifeos_light") === "true") {
+  document.documentElement.classList.add("light-mode");
+}
 const INACTIVITY_MS = 5 * 60 * 1000;
 
 function getToken()       { return localStorage.getItem("lifeos_token") || ""; }
@@ -234,7 +240,8 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--font
 .logo em{color:var(--a);font-style:normal}
 .ns{font-size:8px;font-weight:700;letter-spacing:3px;color:var(--m);padding:0 18px 5px;text-transform:uppercase}
 .ni{display:flex;align-items:center;gap:9px;padding:9px 18px;font-size:13px;font-weight:600;
-  color:var(--m2);cursor:pointer;border-left:2px solid transparent;transition:all .15s;position:relative}
+  color:var(--m2);cursor:pointer;border-left:2px solid transparent;transition:all .15s;position:relative;
+  user-select:none;-webkit-user-select:none}
 .ni:hover{color:var(--t);background:rgba(255,255,255,.02)}
 .ni.on{color:var(--a);border-left-color:var(--a);background:rgba(92,255,176,.04)}
 .ni .sn{margin-left:auto;font-size:8px;font-weight:700;color:var(--m);background:var(--bg4);padding:2px 5px;border-radius:3px}
@@ -259,10 +266,11 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--font
   overflow-x:auto;scrollbar-width:none;flex-shrink:0}
 .subnav::-webkit-scrollbar{display:none}
 .sni{padding:8px 13px;font-size:12px;font-weight:700;color:var(--m);cursor:pointer;
-  border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;transition:all .15s}
+  border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;transition:all .15s;
+  user-select:none;-webkit-user-select:none}
 .sni:hover{color:var(--t)}.sni.on{color:var(--a);border-bottom-color:var(--a)}
-.tab-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
-.cnt{padding:16px 20px 40px}
+.tab-content{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.cnt{padding:16px 20px 40px;flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
 
 /* ── Cards ── */
 .card{background:var(--bg2);border:1px solid var(--b);border-radius:var(--r);padding:14px 16px;margin-bottom:10px}
@@ -563,8 +571,8 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--font
   .mob-wbadge.err{background:var(--warn)}
 
   .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
-  .tab-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
-  .cnt{padding:13px 13px calc(var(--mob-nav) + 18px) 13px}
+  .tab-content{flex:1;overflow:hidden;display:flex;flex-direction:column}
+  .cnt{padding:13px 13px calc(var(--mob-nav) + 18px) 13px;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .subnav{padding:0 13px;background:var(--bg2)}
   .sni{padding:9px 9px;font-size:11px}
 
@@ -575,7 +583,8 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--font
     z-index:100;padding-bottom:env(safe-area-inset-bottom,0px);
   }
   .mni{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    padding:5px 2px 3px;cursor:pointer;gap:3px;position:relative;transition:background .15s}
+    padding:5px 2px 3px;cursor:pointer;gap:3px;position:relative;transition:background .15s;
+    user-select:none;-webkit-user-select:none}
   .mni:active{background:rgba(255,255,255,.03)}
   .mni-ico{font-size:21px;line-height:1;transition:transform .2s}
   .mni.on .mni-ico{transform:scale(1.18)}
@@ -639,7 +648,7 @@ function LoginScreen({ onLogin }) {
   };
 
   return (
-    <div className={localStorage.getItem("lifeos_light")==="true"?"light-mode":""}
+    <div
       style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",
       background:"var(--bg)",flexDirection:"column",padding:20,fontFamily:"var(--font)"}}>
       <style>{CSS}</style>
@@ -1027,11 +1036,11 @@ function FitnessTab() {
   const SECS=[{id:"blueprint",l:"Blueprint"},{id:"review",l:"Weekly Review"},{id:"monthly",l:"Monthly"},{id:"goals",l:"Goals"}];
 
   return (
-    <>
+    <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0,overflow:"hidden"}}>
       <div className="subnav">
         {SECS.map(s=><div key={s.id} className={"sni"+(sec===s.id?" on":"")} onClick={()=>setSec(s.id)}>{s.l}</div>)}
       </div>
-      <div className="tab-content">
+      <div style={{flex:1,overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch"}}>
         <div className="cnt">
 
           {sec==="blueprint"&&(
@@ -1124,6 +1133,7 @@ function FitnessTab() {
           {sec==="goals"&&<GoalsSection/>}
 
         </div>
+        </div>
       </div>
 
       {selectedDay&&(
@@ -1134,7 +1144,7 @@ function FitnessTab() {
         <BodyCompModal weekStartDate={ws} onClose={()=>setCompOpen(false)}
           onDone={r=>{setCompResult(r);setCompOpen(false);}}/>
       )}
-    </>
+    </div>
   );
 }
 
@@ -1825,15 +1835,14 @@ export default function App() {
   const [lightMode, setLightMode] = useState(localStorage.getItem("lifeos_light")==="true");
   const toggleLight = () => { const n=!lightMode; setLightMode(n); localStorage.setItem("lifeos_light",String(n)); };
 
-  // Apply light mode to body/html so the background outside .app also changes
+  // Apply light-mode class to <html> so ALL CSS variables including html/body cascade correctly
   useEffect(()=>{
-    const bg = lightMode ? "#EEF4FF" : "#060610";
-    document.body.style.background = bg;
-    document.documentElement.style.background = bg;
-    return () => {
-      document.body.style.background = "";
-      document.documentElement.style.background = "";
-    };
+    if (lightMode) {
+      document.documentElement.classList.add("light-mode");
+    } else {
+      document.documentElement.classList.remove("light-mode");
+    }
+    return () => document.documentElement.classList.remove("light-mode");
   },[lightMode]);
 
   // Inactivity lock
@@ -1883,7 +1892,7 @@ export default function App() {
   return (
     <>
       <style>{CSS}</style>
-      <div className={"app"+(lightMode?" light-mode":"")}>
+      <div className="app">
 
         {/* Desktop sidebar */}
         <div className="sb">
