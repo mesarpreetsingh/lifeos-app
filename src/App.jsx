@@ -688,47 +688,63 @@ function LoginScreen({ onLogin }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 function Dots() { return <div className="dots"><span/><span/><span/></div>; }
 function Err({ msg }) { return msg ? <div className="err-banner">⚠ {msg}</div> : null; }
+function parseBold(line) {
+  // Split on **bold** and return array of strings and <strong> elements
+  const parts = line.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((p, i) =>
+    p.startsWith('**') && p.endsWith('**')
+      ? <strong key={i} style={{color:"var(--t)",fontWeight:700}}>{p.slice(2,-2)}</strong>
+      : p
+  );
+}
+
 function renderAI(text) {
   if (!text) return null;
-  // Strip raw markdown and render cleanly
   const lines = text.split('\n');
   const elements = [];
   let key = 0;
+
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed) { elements.push(<br key={key++}/>); continue; }
-    // Section headers: lines ending with : that are short, or ALL CAPS words
-    if (/^[A-Z][A-Z\s\/]+:/.test(trimmed) && trimmed.length < 50) {
+
+    // Empty line → small gap
+    if (!trimmed) {
+      elements.push(<div key={key++} style={{height:4}}/>);
+      continue;
+    }
+
+    // Section headers: short ALL-CAPS lines ending with colon e.g. "SLEEP METRICS:"
+    if (/^[A-Z][A-Z\s\/\-]+:$/.test(trimmed) && trimmed.length < 60) {
       elements.push(
         <div key={key++} style={{fontSize:9,fontWeight:700,letterSpacing:"1.5px",
-          textTransform:"uppercase",color:"var(--a)",marginTop:10,marginBottom:3}}>
+          textTransform:"uppercase",color:"var(--a)",marginTop:12,marginBottom:4,
+          paddingBottom:3,borderBottom:"1px solid var(--b)"}}>
           {trimmed.replace(/:$/, '')}
         </div>
       );
       continue;
     }
-    // Convert **bold** to <strong>
-    const parts = trimmed.split(/(\*\*[^*]+\*\*)/g);
-    const rendered = parts.map((p, i) =>
-      p.startsWith('**') && p.endsWith('**')
-        ? <strong key={i} style={{color:"var(--t)",fontWeight:700}}>{p.slice(2,-2)}</strong>
-        : p
-    );
-    // Bullet lines — handle -, •, and * (single asterisk)
-    if (trimmed.startsWith('- ') || trimmed.startsWith('• ') || trimmed.startsWith('* ')) {
+
+    // Bullet lines: starts with "- ", "• ", or "* "
+    const isBullet = trimmed.startsWith('- ') || trimmed.startsWith('• ') || trimmed.startsWith('* ');
+    if (isBullet) {
+      // Strip the bullet prefix before parsing bold
+      const stripped = trimmed.replace(/^[-•*]\s+/, '');
       elements.push(
-        <div key={key++} style={{display:"flex",gap:7,marginBottom:3,paddingLeft:4}}>
-          <span style={{color:"var(--a)",flexShrink:0,marginTop:2}}>·</span>
-          <span style={{fontSize:12.5,lineHeight:1.7,color:"var(--m2)"}}>{rendered.slice(trimmed.startsWith('* ') || trimmed.startsWith('- ') || trimmed.startsWith('• ') ? 1 : 0)}</span>
+        <div key={key++} style={{display:"flex",gap:8,marginBottom:4,paddingLeft:2,alignItems:"flex-start"}}>
+          <span style={{color:"var(--a)",flexShrink:0,fontSize:14,lineHeight:"1.6",marginTop:1}}>·</span>
+          <span style={{fontSize:12.5,lineHeight:1.7,color:"var(--m2)",flex:1}}>{parseBold(stripped)}</span>
         </div>
       );
-    } else {
-      elements.push(
-        <div key={key++} style={{fontSize:12.5,lineHeight:1.75,color:"var(--m2)",marginBottom:2}}>
-          {rendered}
-        </div>
-      );
+      continue;
     }
+
+    // Normal line
+    elements.push(
+      <div key={key++} style={{fontSize:12.5,lineHeight:1.75,color:"var(--m2)",marginBottom:2}}>
+        {parseBold(trimmed)}
+      </div>
+    );
   }
   return elements;
 }
@@ -770,6 +786,31 @@ function UploadZone({ label, file, setFile, preview, setPreview }) {
 }
 
 // Recovery ring
+function extractScore(dayData) {
+  if (!dayData) return null;
+  // Parse from analysis text — source of truth
+  const text = dayData.combined_analysis || "";
+  const tries = [
+    text.match(/RECOVERY SCORE[^0-9]*([0-9]+)/i),
+    text.match(/Recovery Score[^0-9]*([0-9]+)/i),
+    text.match(/([0-9]+)\s*\/\s*100/),
+    text.match(/score[^0-9]*([0-9]+)/i),
+  ];
+  for (const m of tries) {
+    if (m) { const n = parseInt(m[1]); if (n > 0 && n <= 100) return n; }
+  }
+  // Fall back to DB value only if it's not the stale default of 70
+  const db = dayData.recovery_score;
+  if (db && db !== 70) return db;
+  return null;
+}
+
+function RecoveryRingFromData({ dayData }) {
+  const score = extractScore(dayData);
+  if (!score) return null;
+  return <RecoveryRing score={score}/>;
+}
+
 function RecoveryRing({ score }) {
   if (!score) return null;
   const color = score>=80?"var(--a)":score>=55?"var(--gold)":"var(--warn)";
@@ -855,23 +896,7 @@ function TodayTab({ streak, weekPlan }) {
         </div>
       )}
 
-      {(() => {
-        // Try DB score first, but if it's exactly 70 (old default) AND
-        // the analysis text has a different score, prefer the text score.
-        let score = dayData?.recovery_score || null;
-        if (dayData?.combined_analysis) {
-          const patterns = [
-            /RECOVERY SCORE[^\d]*(\d+)/i,
-            /recovery[^\d]*(\d+)\s*\/\s*100/i,
-            /score[^\d]*(\d+)\s*\/\s*100/i,
-          ];
-          for (const p of patterns) {
-            const m = dayData.combined_analysis.match(p);
-            if (m) { const n = parseInt(m[1]); if (n >= 0 && n <= 100) { score = n; break; } }
-          }
-        }
-        return score ? <RecoveryRing score={score}/> : null;
-      })()}
+      <RecoveryRingFromData dayData={dayData}/>
 
       <div className="tgl">Fitness</div>
       {tasks.map(t => (
