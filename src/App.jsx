@@ -53,11 +53,23 @@ const todayStr = () => {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 };
+// Get user's preferred week start day (0=Sun, 1=Mon, ..., 6=Sat). Default: Sunday=0
+function getWeekStartDay() {
+  return parseInt(localStorage.getItem("lifeos_week_start_day") || "0");
+}
+
+// Compute the most recent week-start date on or before dateStr, using user's preferred day
 const weekStart = (dateStr) => {
-  const d = new Date(dateStr);
-  const day = d.getDay();
-  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
-  return d.toISOString().slice(0, 10);
+  const d = new Date(dateStr + "T12:00:00");
+  const startDay = getWeekStartDay();
+  const dow = d.getDay(); // 0=Sun..6=Sat
+  // How many days back to go to reach the most recent startDay
+  const diff = (dow - startDay + 7) % 7;
+  d.setDate(d.getDate() - diff);
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
 };
 function dayDate(weekStartStr, dayName) {
   // Handles both abbreviated ("Mon") and full ("Monday") day names from AI
@@ -1304,25 +1316,36 @@ function FitnessTab() {
                 </div>
               )}
 
-              {/* Week selector pills */}
+              {/* Uploaded schedule dates — show each week_start as a date pill */}
               {!loading&&allWeeks.length>0&&(
                 <div style={{marginBottom:13}}>
                   <div style={{fontSize:9,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",
-                    color:"var(--m)",marginBottom:8}}>All uploaded weeks</div>
+                    color:"var(--m)",marginBottom:8}}>Schedules uploaded</div>
                   <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
-                    {allWeeks.map(wk=>(
-                      <div key={wk.week_start}
-                        onClick={()=>setViewWeek(wk.week_start)}
-                        style={{padding:"6px 11px",borderRadius:8,cursor:"pointer",
-                          fontSize:11,fontWeight:700,fontFamily:"var(--mono)",
-                          border: viewWeek===wk.week_start ? "2px solid var(--a)" : "1px solid var(--b)",
-                          background: viewWeek===wk.week_start ? "rgba(92,255,176,0.06)" : "var(--bg3)",
-                          color: viewWeek===wk.week_start ? "var(--a)" : "var(--m2)",
-                          transition:"all .15s"}}>
-                        {weekRangeLabel(wk.week_start)}
-                        {wk.week_start===ws&&<span style={{marginLeft:5,fontSize:9,color:"var(--a)"}}>●</span>}
-                      </div>
-                    ))}
+                    {allWeeks.map(wk=>{
+                      const d = new Date(wk.week_start + "T12:00:00");
+                      const label = d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+                      const isCurrent = wk.week_start === ws;
+                      const isSelected = viewWeek === wk.week_start;
+                      return (
+                        <div key={wk.week_start}
+                          onClick={()=>setViewWeek(wk.week_start)}
+                          style={{padding:"7px 12px",borderRadius:8,cursor:"pointer",
+                            fontSize:11,fontWeight:700,fontFamily:"var(--mono)",
+                            border: isSelected ? "2px solid var(--a)" : "1px solid var(--b)",
+                            background: isSelected ? "rgba(92,255,176,0.07)" : "var(--bg3)",
+                            color: isSelected ? "var(--a)" : "var(--m2)",
+                            transition:"all .15s",display:"flex",alignItems:"center",gap:6}}>
+                          {label}
+                          {isCurrent && (
+                            <span style={{fontSize:8,padding:"1px 5px",borderRadius:3,
+                              background:"rgba(92,255,176,0.15)",color:"var(--a)",fontWeight:700}}>
+                              NOW
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1717,6 +1740,27 @@ function SettingsTab({ onReset, lightMode, toggleLight }) {
             <option value="75">75 min</option>
           </select>
         </div>
+
+        <div className="setting-row">
+          <div className="sr-left">
+            <div className="sr-label">Week Starts On</div>
+            <div className="sr-desc">Used in schedule view, blueprint, and week calculations</div>
+          </div>
+          <select className="sel" style={{width:110}}
+            defaultValue={localStorage.getItem("lifeos_week_start_day")||"0"}
+            onChange={e=>{
+              localStorage.setItem("lifeos_week_start_day", e.target.value);
+              window.location.reload(); // reload so all week calculations update
+            }}>
+            <option value="0">Sunday</option>
+            <option value="1">Monday</option>
+            <option value="2">Tuesday</option>
+            <option value="3">Wednesday</option>
+            <option value="4">Thursday</option>
+            <option value="5">Friday</option>
+            <option value="6">Saturday</option>
+          </select>
+        </div>
       </div>
 
       {/* App Settings */}
@@ -1811,22 +1855,23 @@ function SettingsTab({ onReset, lightMode, toggleLight }) {
 //        if today is Mon/Tue/Wed → could be this week still
 // Always computes the correct Monday-based week start.
 function autoDetectWeekStart() {
+  // Returns this week or next week's start date based on user's preferred start day.
+  // If today is within the last 3 days of the current week → probably planning next week
   const today = new Date();
-  const dow = today.getDay(); // 0=Sun,1=Mon...6=Sat
-  // If Fri(5), Sat(6), Sun(0), or Thu(4) → next week
-  const daysUntilNextMonday = dow === 0 ? 1 : 8 - dow;
-  const planningNextWeek = dow >= 4 || dow === 0;
-  const d = new Date(today);
-  if (planningNextWeek) {
-    d.setDate(today.getDate() + daysUntilNextMonday);
-  } else {
-    // This week's Monday
-    d.setDate(today.getDate() + (dow === 0 ? -6 : 1 - dow));
-  }
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,"0");
-  const day = String(d.getDate()).padStart(2,"0");
-  return `${y}-${m}-${day}`;
+  const startDay = getWeekStartDay();
+  const dow = today.getDay();
+  // Days until next start day
+  const daysUntilNext = (startDay - dow + 7) % 7 || 7;
+  // If we are 0-2 days into the current week, plan this week; otherwise plan next week
+  const daysIntoWeek = (dow - startDay + 7) % 7;
+  const planNext = daysIntoWeek >= 4; // Thu or later in the current week = plan next
+  const target = new Date(today);
+  if (planNext) target.setDate(today.getDate() + daysUntilNext);
+  else target.setDate(today.getDate() - daysIntoWeek);
+  const y = target.getFullYear();
+  const m = String(target.getMonth()+1).padStart(2,"0");
+  const d = String(target.getDate()).padStart(2,"0");
+  return `${y}-${m}-${d}`;
 }
 function weekRangeLabel(ws) {
   const d = new Date(ws + "T12:00:00");
