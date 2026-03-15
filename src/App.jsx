@@ -1495,7 +1495,7 @@ function GoalsSection() {
     <div>
       <div style={{marginBottom:13}}>
         <div style={{fontSize:13,fontWeight:700}}>Fitness Goals</div>
-        <div style={{fontSize:10,color:"var(--m)",marginTop:2}}>Add a goal — AI assesses it instantly</div>
+        <div style={{fontSize:10,color:"var(--m)",marginTop:2}}>Goals feed into your workout plan each week</div>
       </div>
       <div className="goal-input-wrap">
         <input className="goal-input" placeholder="e.g. Do 15 pull-ups · Lose 5kg body fat · Run 5km"
@@ -1507,18 +1507,39 @@ function GoalsSection() {
       </div>
       {goals.length===0&&<div className="empty-state">No goals yet. Add your first one above.</div>}
       {goals.map(g=>(
-        <div key={g.id} className={"goal-card"+(g.done?" done":"")}>
-          <div className="goal-text">
-            <span style={{textDecoration:g.done?"line-through":"none"}}>{g.text}</span>
-            <div style={{display:"flex",gap:3}}>
-              <button className="gc-btn" onClick={()=>toggleDone(g.id,g.done)}>{g.done?"↩":"✓"}</button>
-              <button className="gc-btn" onClick={()=>deleteGoal(g.id)}>✕</button>
-            </div>
+        <div key={g.id} className={"goal-card"+(g.done?" done":"")}
+          style={{display:"flex",alignItems:"flex-start",gap:10,padding:"11px 13px"}}>
+          {/* Checkbox */}
+          <div onClick={()=>toggleDone(g.id,g.done)}
+            style={{width:20,height:20,borderRadius:5,border:"2px solid var(--b2)",
+              background:g.done?"var(--a)":"transparent",flexShrink:0,marginTop:2,
+              cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
+              transition:"all .15s"}}>
+            {g.done && <span style={{color:"var(--bg)",fontSize:12,fontWeight:900}}>✓</span>}
           </div>
-          <div className="goal-date">{new Date(g.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>
-          {g.ai_insight===null
-            ? <div style={{fontSize:11,color:"var(--m)",display:"flex",alignItems:"center",gap:5}}><Dots/> AI analyzing fitness plan…</div>
-            : <div className="goal-ai">{renderAI(g.ai_insight)}</div>}
+          {/* Content */}
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:13,fontWeight:600,
+              textDecoration:g.done?"line-through":"none",
+              color:g.done?"var(--m)":"var(--t)",lineHeight:1.4,marginBottom:4}}>
+              {g.text}
+            </div>
+            {g.ai_insight===null
+              ? <div style={{fontSize:11,color:"var(--m)",display:"flex",alignItems:"center",gap:5}}>
+                  <Dots/> Adding to workout plan…
+                </div>
+              : g.ai_insight && (
+                  <div style={{fontSize:12,color:"var(--a)",lineHeight:1.55,
+                    background:"rgba(92,255,176,0.06)",borderRadius:7,
+                    padding:"6px 9px",borderLeft:"2px solid var(--a)"}}>
+                    {stripStars(g.ai_insight)}
+                  </div>
+                )
+            }
+          </div>
+          {/* Delete */}
+          <button className="gc-btn" onClick={()=>deleteGoal(g.id)}
+            style={{flexShrink:0,marginTop:1}}>✕</button>
         </div>
       ))}
     </div>
