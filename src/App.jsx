@@ -1297,7 +1297,7 @@ function FitnessTab() {
     setMonthLoading(false);
   };
 
-  const SECS=[{id:"blueprint",l:"Blueprint"},{id:"review",l:"Weekly Review"},{id:"monthly",l:"Monthly"},{id:"goals",l:"Goals"}];
+  const SECS=[{id:"blueprint",l:"Blueprint"},{id:"review",l:"Weekly Review"},{id:"monthly",l:"Monthly"}];
 
   return (
     <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0,overflow:"hidden"}}>
@@ -1404,7 +1404,7 @@ function FitnessTab() {
             </div>
           )}
 
-          {sec==="goals"&&<GoalsSection/>}
+
 
         </div>
       </div>
@@ -1552,118 +1552,229 @@ function GoalsSection() {
 // Only AI-processed results shown below.
 // ═══════════════════════════════════════════════════════════════════════════════
 function NotesTab() {
-  const [aiContext, setAiContext]   = useState(null);   // latest AI-processed context
-  const [rawNotes, setRawNotes]     = useState([]);     // notes saved but not yet processed
-  const [allNotes, setAllNotes]     = useState([]);     // all notes ever saved
-  const [input, setInput]           = useState("");
-  const [adding, setAdding]         = useState(false);
-  const [processing, setProcessing] = useState(false);
-  const [loading, setLoading]       = useState(true);
+  const [notes, setNotes]         = useState([]);
+  const [contexts, setContexts]   = useState({}); // {module: context_string}
+  const [input, setInput]         = useState("");
+  const [editId, setEditId]       = useState(null);
+  const [editText, setEditText]   = useState("");
+  const [adding, setAdding]       = useState(false);
+  const [processingId, setProcessingId] = useState(null); // which note is being processed
+  const [processingAll, setProcessingAll] = useState(false);
+  const [loading, setLoading]     = useState(true);
+
+  const MODULE_COLORS = {
+    fitness:  {bg:"rgba(92,255,176,0.08)",  border:"rgba(92,255,176,0.3)",  color:"var(--a)"},
+    hobbies:  {bg:"rgba(180,100,255,0.08)", border:"rgba(180,100,255,0.3)", color:"#CC88FF"},
+    skills:   {bg:"rgba(92,158,255,0.08)",  border:"rgba(92,158,255,0.3)",  color:"#7ABAFF"},
+    general:  {bg:"rgba(255,255,255,0.04)", border:"var(--b)",              color:"var(--m2)"},
+  };
 
   const load = async () => {
     try {
       const [n, c] = await Promise.all([
         api("/notes").catch(()=>({notes:[]})),
-        api("/notes/context").catch(()=>({context:null})),
+        api("/notes/context").catch(()=>({contexts:[]})),
       ]);
-      const notes = n.notes || [];
-      setAllNotes(notes);
-      // Raw = notes that haven't been processed yet (after last context update)
-      // We approximate this as all notes (user can always re-process)
-      setRawNotes(notes);
-      if (c.context) setAiContext(c.context);
+      setNotes(n.notes || []);
+      // Build contexts map by module
+      const ctxMap = {};
+      (c.contexts || []).forEach(cx => { ctxMap[cx.module] = cx.context; });
+      setContexts(ctxMap);
     } catch {}
     setLoading(false);
   };
 
-  useEffect(()=>{load();},[]);
+  useEffect(()=>{ load(); },[]);
 
   const addNote = async () => {
-    if(!input.trim()) return;
+    if (!input.trim()) return;
     setAdding(true);
     try {
       const res = await api("/notes", {method:"POST", body:JSON.stringify({content:input.trim()})});
-      // Optimistically add to local state without full reload
-      const newNote = res.note || {id:Date.now(), content:input.trim(), created_at:new Date().toISOString()};
-      setAllNotes(prev => [newNote, ...prev]);
-      setRawNotes(prev => [newNote, ...prev]);
+      const newNote = res.note || {id:Date.now(), content:input.trim(), created_at:new Date().toISOString(), processed:0, module:"general", context:null};
+      setNotes(prev => [newNote, ...prev]);
       setInput("");
-    } catch(e) { alert("Failed to save note: " + e.message); }
+    } catch(e) { alert("Failed to save: " + e.message); }
     setAdding(false);
   };
 
-  const processNotes = async () => {
-    if(allNotes.length===0) return;
-    setProcessing(true);
+  const saveEdit = async () => {
+    if (!editText.trim()) return;
     try {
-      const res = await api("/notes/process", {method:"POST"});
-      setAiContext(res.context);
-      setRawNotes([]); // all notes are now processed
+      await api(`/notes/${editId}`, {method:"PATCH", body:JSON.stringify({content:editText.trim()})});
+      setNotes(prev => prev.map(n => n.id===editId ? {...n, content:editText.trim(), processed:0, module:"general", context:null} : n));
+      setEditId(null); setEditText("");
     } catch(e) { alert(e.message); }
-    setProcessing(false);
   };
 
   const deleteNote = async (id) => {
-    setAllNotes(prev => prev.filter(n => n.id !== id));
-    setRawNotes(prev => prev.filter(n => n.id !== id));
+    setNotes(prev => prev.filter(n => n.id !== id));
     await api(`/notes/${id}`, {method:"DELETE"}).catch(()=>{});
   };
 
-  if(loading)return<div className="cnt" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:200}}><Dots/></div>;
+  const processOne = async (note) => {
+    setProcessingId(note.id);
+    try {
+      const res = await api("/notes/process", {method:"POST", body:JSON.stringify({note_id:note.id})});
+      if (res.notes?.length) {
+        const updated = res.notes[0];
+        setNotes(prev => prev.map(n => n.id===note.id ? {...n, module:updated.module, context:updated.context, processed:1} : n));
+      }
+      if (res.contexts?.length) {
+        setContexts(prev => {
+          const next = {...prev};
+          res.contexts.forEach(cx => { next[cx.module] = cx.context; });
+          return next;
+        });
+      }
+    } catch(e) { alert(e.message); }
+    setProcessingId(null);
+  };
+
+  const processAll = async () => {
+    const unprocessed = notes.filter(n => !n.processed);
+    if (!unprocessed.length) return;
+    setProcessingAll(true);
+    try {
+      const res = await api("/notes/process", {method:"POST"});
+      if (res.notes?.length) {
+        const updMap = {};
+        res.notes.forEach(u => { updMap[u.id] = u; });
+        setNotes(prev => prev.map(n => updMap[n.id] ? {...n, ...updMap[n.id], processed:1} : n));
+      }
+      if (res.contexts?.length) {
+        const ctxMap = {...contexts};
+        res.contexts.forEach(cx => { ctxMap[cx.module] = cx.context; });
+        setContexts(ctxMap);
+      }
+    } catch(e) { alert(e.message); }
+    setProcessingAll(false);
+  };
+
+  if (loading) return <div className="cnt" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:200}}><Dots/></div>;
+
+  const unprocessedCount = notes.filter(n => !n.processed).length;
 
   return (
     <div className="cnt">
       <div style={{marginBottom:12}}>
         <div style={{fontSize:13,fontWeight:700}}>Notes</div>
-        <div style={{fontSize:10,color:"var(--m)",marginTop:2,lineHeight:1.5}}>
-          Add anything about your schedule, preferences, or constraints. AI reads this when planning.
+        <div style={{fontSize:10,color:"var(--m)",marginTop:2,lineHeight:1.55}}>
+          Add anything — commute times, injuries, goals, preferences. AI auto-categorizes each note and feeds it to the right module.
         </div>
       </div>
 
-      {/* Input — no placeholder text */}
+      {/* Input */}
       <textarea className="ta" value={input} onChange={e=>setInput(e.target.value)}
         style={{minHeight:80,marginBottom:8}}/>
-
-      <div style={{display:"flex",gap:7,marginBottom:18,flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:7,marginBottom:16,flexWrap:"wrap"}}>
         <button className="btn bp bsm" onClick={addNote} disabled={adding||!input.trim()}>
           {adding?<Dots/>:"Add Note"}
         </button>
-        <button className="btn bs" onClick={processNotes}
-          disabled={processing||allNotes.length===0} style={{flex:"1 1 180px"}}>
-          {processing?<><Dots/> Processing…</>:"✦ Process All Notes → AI Context"}
-        </button>
+        {unprocessedCount > 0 && (
+          <button className="btn bs" onClick={processAll}
+            disabled={processingAll} style={{flex:"1 1 160px"}}>
+            {processingAll
+              ? <><Dots/> Processing…</>
+              : `✦ Process ${unprocessedCount} unprocessed note${unprocessedCount>1?"s":""}`}
+          </button>
+        )}
       </div>
 
-      {/* AI context — show at top so user can see what AI knows */}
-      {aiContext && (
-        <div className="processed-note" style={{marginBottom:16}}>
-          <div className="pn-meta">
-            ✦ Active AI context — injected into every AI call
-            <span style={{color:"var(--m)",marginLeft:"auto",fontSize:9}}>tap Process to refresh</span>
-          </div>
-          <div className="pn-body">{aiContext}</div>
+      {/* AI contexts by module */}
+      {Object.keys(contexts).length > 0 && (
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:9,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",
+            color:"var(--m)",marginBottom:8}}>Active AI context per module</div>
+          {Object.entries(contexts).map(([mod, ctx]) => {
+            const c = MODULE_COLORS[mod] || MODULE_COLORS.general;
+            return (
+              <div key={mod} style={{background:c.bg,border:"1px solid "+c.border,
+                borderRadius:9,padding:"9px 12px",marginBottom:7}}>
+                <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.5px",
+                  textTransform:"uppercase",color:c.color,marginBottom:5}}>
+                  ✦ {mod}
+                </div>
+                <div style={{fontSize:12,color:"var(--m2)",lineHeight:1.65}}>{ctx}</div>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* All saved notes with delete */}
-      {allNotes.length>0 ? (
+      {/* All notes */}
+      {notes.length > 0 ? (
         <div>
           <div style={{fontSize:9,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",
-            color:"var(--m)",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <span>{allNotes.length} saved note{allNotes.length>1?"s":""}</span>
-            <span style={{fontSize:9,color:"var(--m)",fontWeight:400}}>Tap × to delete</span>
+            color:"var(--m)",marginBottom:8,display:"flex",justifyContent:"space-between"}}>
+            <span>{notes.length} note{notes.length>1?"s":""}</span>
+            <span style={{fontWeight:400}}>Tap pencil to edit</span>
           </div>
-          {allNotes.map(n=>(
-            <div key={n.id} className="note-card">
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
-                <div style={{fontSize:9,color:"var(--m)",fontFamily:"var(--mono)"}}>
-                  {new Date(n.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
+          {notes.map(n => {
+            const c = MODULE_COLORS[n.module || "general"] || MODULE_COLORS.general;
+            const isEditing = editId === n.id;
+            return (
+              <div key={n.id} className="note-card" style={{marginBottom:8}}>
+                {/* Header row */}
+                <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6}}>
+                  {n.module && n.processed ? (
+                    <span style={{fontSize:8,fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",
+                      padding:"2px 7px",borderRadius:4,background:c.bg,
+                      border:"1px solid "+c.border,color:c.color}}>
+                      {n.module}
+                    </span>
+                  ) : (
+                    <span style={{fontSize:8,color:"var(--warn)",fontWeight:700,letterSpacing:"1px",
+                      textTransform:"uppercase",padding:"2px 7px",borderRadius:4,
+                      background:"rgba(255,107,107,0.08)",border:"1px solid rgba(255,107,107,0.2)"}}>
+                      unprocessed
+                    </span>
+                  )}
+                  <span style={{fontSize:9,color:"var(--m)",fontFamily:"var(--mono)",marginLeft:"auto"}}>
+                    {new Date(n.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"})}
+                  </span>
+                  {/* Edit button */}
+                  <button className="gc-btn" style={{fontSize:12}}
+                    onClick={()=>{ setEditId(n.id); setEditText(n.content); }}>✏</button>
+                  {/* Delete */}
+                  <button className="gc-btn" onClick={()=>deleteNote(n.id)}>✕</button>
                 </div>
-                <button className="gc-btn" onClick={()=>deleteNote(n.id)}>✕</button>
+
+                {/* Content or edit textarea */}
+                {isEditing ? (
+                  <div>
+                    <textarea className="ta" value={editText} onChange={e=>setEditText(e.target.value)}
+                      style={{minHeight:60,marginBottom:7,fontSize:13}}/>
+                    <div style={{display:"flex",gap:6}}>
+                      <button className="btn bs bsm" onClick={()=>{setEditId(null);setEditText("");}}>Cancel</button>
+                      <button className="btn bp bsm" onClick={saveEdit}>Save</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{fontSize:13,lineHeight:1.65,color:"var(--t)",whiteSpace:"pre-wrap",marginBottom:n.context?8:0}}>
+                    {n.content}
+                  </div>
+                )}
+
+                {/* AI context for this note */}
+                {n.context && !isEditing && (
+                  <div style={{fontSize:11.5,color:"var(--m2)",lineHeight:1.6,
+                    background:"var(--bg3)",borderRadius:7,padding:"6px 9px",
+                    borderLeft:"2px solid "+c.border}}>
+                    {n.context}
+                  </div>
+                )}
+
+                {/* Process button if unprocessed */}
+                {!n.processed && !isEditing && (
+                  <button className="btn bs bsm" style={{marginTop:7,width:"100%"}}
+                    onClick={()=>processOne(n)} disabled={processingId===n.id}>
+                    {processingId===n.id ? <><Dots/> Categorizing…</> : "✦ Process this note"}
+                  </button>
+                )}
               </div>
-              <div style={{fontSize:13,lineHeight:1.65,color:"var(--t)",whiteSpace:"pre-wrap"}}>{n.content}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="empty-state">
