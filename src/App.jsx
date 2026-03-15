@@ -833,6 +833,12 @@ function extractScore(dayData) {
   return null;
 }
 
+const MODULE_CONFIG = {
+  fitness: { color:"var(--a)",    bg:"rgba(92,255,176,0.08)",   border:"rgba(92,255,176,0.3)",   icon:"🏋️", label:"Fitness" },
+  skills:  { color:"#7ABAFF",    bg:"rgba(92,158,255,0.08)",   border:"rgba(92,158,255,0.3)",   icon:"📚", label:"Skills"  },
+  hobbies: { color:"#CC88FF",    bg:"rgba(180,100,255,0.08)",  border:"rgba(180,100,255,0.3)",  icon:"🎨", label:"Hobbies" },
+};
+
 function RecoveryRingFromData({ dayData }) {
   const score = extractScore(dayData);
   if (!score) return null;
@@ -867,149 +873,306 @@ function RecoveryRing({ score }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TODAY TAB
 // ═══════════════════════════════════════════════════════════════════════════════
+function SessionCompleteCard({ module, sessionName, date, weekStartDate, onDone }) {
+  const cfg = MODULE_CONFIG[module] || MODULE_CONFIG.fitness;
+  const [questions, setQuestions]   = useState(null);
+  const [answers, setAnswers]       = useState({});
+  const [loading, setLoading]       = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult]         = useState(null);
+  const [err, setErr]               = useState(null);
+  const autoComplete = localStorage.getItem("lifeos_auto_complete") !== "false";
+
+  useEffect(() => {
+    api("/module/session/questions", {method:"POST",
+      body: JSON.stringify({ module, session_name: sessionName, date })
+    }).then(r => { setQuestions(r.questions || []); setLoading(false); })
+    .catch(() => { setQuestions([]); setLoading(false); });
+  }, []);
+
+  const canSubmit = !questions || questions.every(q => !q.required || (answers[q.text]?.trim()));
+
+  const submit = async () => {
+    setSubmitting(true); setErr(null);
+    try {
+      const answersArr = (questions || []).map(q => ({
+        question: q.text,
+        answer: answers[q.text] || "",
+        required: q.required,
+      }));
+      const res = await api("/module/session/complete", {method:"POST",
+        body: JSON.stringify({
+          module, session_name: sessionName, date,
+          answers: answersArr, duration_minutes: 0,
+          auto_complete_enabled: autoComplete,
+        })
+      });
+      setResult(res);
+      if (res.completed_goals?.length) {
+        // Show goal completion notification
+        setTimeout(() => onDone(res), 2000);
+      } else {
+        onDone(res);
+      }
+    } catch(e) { setErr(e.message); }
+    setSubmitting(false);
+  };
+
+  if (loading) return <div style={{padding:"10px 0",display:"flex",gap:8,alignItems:"center"}}><Dots/><span style={{fontSize:12,color:"var(--m)"}}>Generating session questions…</span></div>;
+
+  return (
+    <div style={{marginTop:10,padding:"12px 14px",background:cfg.bg,borderRadius:9,border:"1px solid "+cfg.border}}>
+      {result?.completed_goals?.map((g,i) => (
+        <div key={i} style={{background:"rgba(255,209,102,0.12)",border:"1px solid rgba(255,209,102,0.3)",
+          borderRadius:7,padding:"8px 11px",marginBottom:10,fontSize:12}}>
+          🏆 Goal auto-completed: <b style={{fontWeight:600}}>{g.goalText}</b> — hit {g.metric} {g.achieved} (target: {g.target})
+        </div>
+      ))}
+      {questions.length === 0 ? (
+        <div style={{fontSize:12,color:"var(--m2)",marginBottom:8}}>How did the session feel? (optional)</div>
+      ) : (
+        questions.map((q,i) => (
+          <div key={i} style={{marginBottom:10}}>
+            <div style={{fontSize:11.5,color:"var(--t)",fontWeight:600,marginBottom:4,display:"flex",alignItems:"center",gap:6}}>
+              {q.text}
+              {q.required && <span style={{fontSize:9,padding:"1px 5px",borderRadius:3,background:"rgba(255,107,107,0.12)",color:"var(--warn)",fontWeight:700}}>REQUIRED</span>}
+            </div>
+            <input className="inp" value={answers[q.text]||""}
+              onChange={e=>setAnswers(a=>({...a,[q.text]:e.target.value}))}
+              placeholder={q.required ? "Required to track progress" : "Optional"}
+              style={{fontSize:12.5}}/>
+          </div>
+        ))
+      )}
+      <Err msg={err}/>
+      {!result && (
+        <button className="btn bp" onClick={submit} disabled={submitting||!canSubmit}
+          style={{width:"100%",marginTop:4}}>
+          {submitting ? <><Dots/> Saving…</> : "✅ Submit & Complete"}
+        </button>
+      )}
+      {result && !result.completed_goals?.length && (
+        <div style={{fontSize:12,color:cfg.color,fontWeight:600,textAlign:"center",padding:"4px 0"}}>✓ Session logged</div>
+      )}
+      {result?.observation && <AiBox label="Session insight" text={result.observation}/>}
+    </div>
+  );
+}
+
 function TodayTab({ streak, weekPlan }) {
   const today = todayStr();
-  const [sec, setSec]                 = useState("today");
-  const [dayData, setDayData]         = useState(null);
-  const [loading, setLoading]         = useState(true);
-  const [uploadOpen, setUploadOpen]   = useState(false);
-  const [workoutOpen, setWorkoutOpen] = useState(false);
+  const [dayData, setDayData]       = useState(null);
+  const [loading, setLoading]       = useState(true);
+  const [streaks, setStreaks]       = useState({});
+  const [lifeScore, setLifeScore]   = useState(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [expandedTask, setExpandedTask] = useState(null); // task id expanded
+  const [completingTask, setCompletingTask] = useState(null); // session completing
+
+  const ws = weekStart(today);
+  const todayDayAbbr = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][new Date().getDay()];
+
+  const load = useCallback(async () => {
+    try {
+      const [d, s, ls] = await Promise.all([
+        api("/data/day/" + today),
+        api("/module/streaks"),
+        api("/life/score?week_start=" + ws),
+      ]);
+      setDayData(d);
+      setStreaks(s.streaks || {});
+      setLifeScore(ls.score);
+    } catch { setDayData(null); }
+    setLoading(false);
+  }, [today, ws]);
+
+  useEffect(() => { load(); }, [load]);
 
   const onAnalysisDone = (res) => {
     setDayData(d => ({...(d||{}), combined_analysis:res.analysis, recovery_score:res.recovery_score}));
     setUploadOpen(false);
   };
 
-  const load = useCallback(async () => {
-    try { const d = await api(`/data/day/${today}`); setDayData(d); }
-    catch { setDayData(null); }
-    setLoading(false);
-  }, [today]);
+  // Build time-sorted task list from all modules
+  const buildTasks = () => {
+    const tasks = [];
+    // Sleep upload always first
+    tasks.push({
+      id: "sleep", module: "fitness", icon: "🌙",
+      label: "Upload Sleep + Activity",
+      desc: "Samsung Health screenshots",
+      time: "00:00", // always sorts first
+      done: !!dayData?.combined_analysis,
+      onTap: () => setUploadOpen(true),
+    });
+    // Module sessions for today
+    for (const mod of ["fitness","skills","hobbies"]) {
+      const plan = weekPlan?.[mod]?.days;
+      if (!plan) continue;
+      const todayPlan = plan.find(d => d.day?.slice(0,3) === todayDayAbbr);
+      if (!todayPlan || todayPlan.is_rest) continue;
+      const cfg = MODULE_CONFIG[mod];
+      // Check if completed today
+      const sessionDone = false; // would need to track per-module completion
+      tasks.push({
+        id: mod + "_session",
+        module: mod,
+        icon: cfg.icon,
+        label: todayPlan.session_name || (cfg.label + " Session"),
+        desc: todayPlan.time_window ? todayPlan.time_window + " · " + cfg.label : cfg.label,
+        time: todayPlan.time_window ? todayPlan.time_window.split("-")[0].trim() : "12:00",
+        sessionFocus: todayPlan.session_detail || todayPlan.ai_note || "",
+        day: todayPlan,
+        done: sessionDone,
+        onTap: () => {
+          setExpandedTask(t => t === mod+"_session" ? null : mod+"_session");
+        },
+      });
+    }
+    // Sort by time
+    tasks.sort((a,b) => {
+      const toMins = t => { const [h,m] = t.replace(/[apm]/gi,"").split(":").map(Number); return (h||0)*60+(m||0); };
+      return toMins(a.time) - toMins(b.time);
+    });
+    return tasks;
+  };
 
-  useEffect(() => { load(); }, [load]);
+  const tasks = buildTasks();
+  const doneTasks = tasks.filter(t => t.done).length;
+  const totalTasks = tasks.length;
 
-  const ws = weekStart(today);
-  const todayDayAbbr = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][new Date().getDay()];
-  const todayPlan = weekPlan?.fitness?.days?.find(d =>
-    d.day && (d.day.slice(0,3) === todayDayAbbr)
-  ) || null;
+  const scoreColor = !lifeScore ? "var(--m)" : lifeScore >= 70 ? "var(--a)" : lifeScore >= 50 ? "var(--gold)" : "var(--warn)";
 
-  const tasks = [
-    { id:"daily",   icon:"🌙", label:"Sleep + Activity",
-      desc:"Upload both Samsung Health screenshots", done:!!dayData?.combined_analysis },
-    { id:"workout", icon:"🏋️",
-      label: todayPlan?.session_name || "Today's Workout",
-      desc: todayPlan ? `${todayPlan.time_window} · Bodyweight` : "Generate schedule first in Settings",
-      done: !!dayData?.workout_completed },
-  ];
-
-  const SECS = [{id:"today",l:"Today"},{id:"schedule",l:"This Week"}];
-
-  return (
-    <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0,overflow:"hidden"}}>
-      <div className="subnav">
-        {SECS.map(s=><div key={s.id} className={"sni"+(sec===s.id?" on":"")} onClick={()=>setSec(s.id)}>{s.l}</div>)}
-      </div>
-      <div style={{flex:1,overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch"}}>
-        <div className="cnt">
-
-          {sec==="today" && <>
-            {loading
-              ? <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:160}}><Dots/></div>
-              : <>
-                  {streak?.count>0 && (
-                    <div className="streak-banner">
-                      <span style={{fontSize:20}}>🔥</span>
-                      <div><div className="streak-count">{streak.count}</div>
-                      <div style={{fontSize:9,color:"var(--m2)"}}>day streak</div></div>
-                      {streak.message && <div className="streak-msg">{streak.message}</div>}
-                    </div>
-                  )}
-                  <RecoveryRingFromData dayData={dayData}/>
-                  <div className="tgl">Fitness</div>
-                  {tasks.map(t => (
-                    <div key={t.id} className={"ti"+(t.done?" done":"")}
-                      onClick={()=>{
-                        if(t.done)return;
-                        if(t.id==="daily") setUploadOpen(true);
-                        if(t.id==="workout") setWorkoutOpen(true);
-                      }}>
-                      <div className="tic">{t.icon}</div>
-                      <div className="tinfo">
-                        <div className="tlbl">{t.label}</div>
-                        <div className="tdsc">{t.desc}</div>
-                      </div>
-                      <span className={"tbdg "+(t.done?"d":"p")}>{t.done?"Done ✓":"Tap"}</span>
-                      {!t.done && <span style={{color:"var(--a)",fontSize:15}}>›</span>}
-                    </div>
-                  ))}
-                  {dayData?.combined_analysis && <AiBox label="Day Observation" text={dayData.combined_analysis}/>}
-                </>
-            }
-          </>}
-
-          {sec==="schedule" && <WeekScheduleView weekPlan={weekPlan} weekStartDate={ws}/>}
-
-        </div>
-      </div>
-
-      {uploadOpen && <DailyUploadModal today={today} todayPlan={todayPlan}
-        onClose={()=>{setUploadOpen(false);load();}}
-        onDone={onAnalysisDone}/>}
-      {workoutOpen && <DayDetailModal day={todayPlan||{day:"Today",session_name:"No Plan"}}
-        weekStartDate={ws} onClose={()=>{setWorkoutOpen(false);load();}}/>}
-    </div>
+  if (loading) return (
+    <div className="cnt" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:200}}><Dots/></div>
   );
-}
-
-// Reusable week schedule view — used in both HomeTab and FitnessTab
-function WeekScheduleView({ weekPlan, weekStartDate, onDaySelect }) {
-  const days = weekPlan?.fitness?.days || [];
-  const ctxCls = c=>c?.includes("Work")&&c?.includes("College")?"cb":c==="Work"?"cw":c==="College"?"cc":c==="Off"?"co":"cr";
-  const [selectedDay, setSelectedDay] = useState(null);
-
-  if (days.length === 0) {
-    return (
-      <div className="empty-state">
-        <div style={{fontSize:28,marginBottom:8}}>📅</div>
-        No schedule for this week yet.<br/>
-        <span style={{fontSize:11}}>Go to Settings → Upload Schedule to generate it.</span>
-      </div>
-    );
-  }
 
   return (
-    <div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-        <div style={{fontSize:13,fontWeight:700}}>
-          {weekPlan?.fitness ? `Week ${weekPlan.fitness.week_number||1}` : "This Week"}
+    <div className="cnt">
+
+      {/* Life Score */}
+      {lifeScore !== null && (
+        <div style={{background:"var(--bg2)",border:"1px solid var(--b)",borderRadius:12,
+          padding:"12px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:14}}>
+          <div style={{textAlign:"center",minWidth:54}}>
+            <div style={{fontSize:28,fontWeight:800,fontFamily:"var(--mono)",color:scoreColor,lineHeight:1}}>{lifeScore}</div>
+            <div style={{fontSize:9,color:"var(--m)",letterSpacing:"1.5px",textTransform:"uppercase",marginTop:2}}>Life Score</div>
+          </div>
+          <div style={{flex:1}}>
+            <div style={{height:6,background:"var(--bg4)",borderRadius:3,overflow:"hidden"}}>
+              <div style={{height:"100%",width:lifeScore+"%",background:scoreColor,borderRadius:3,transition:"width .6s ease"}}/>
+            </div>
+            <div style={{fontSize:11,color:"var(--m2)",marginTop:5}}>
+              {lifeScore>=70?"Strong week across all modules":lifeScore>=50?"Making progress — keep going":"Low activity — let's get moving"}
+            </div>
+          </div>
         </div>
-        <div style={{fontSize:10,color:"var(--m)",fontFamily:"var(--mono)"}}>
-          {weekStartDate ? weekRangeLabel(weekStartDate) : ""}
+      )}
+
+      {/* Streak row — 3 boxes */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+        {["fitness","skills","hobbies"].map(mod => {
+          const cfg = MODULE_CONFIG[mod];
+          const s = streaks[mod];
+          return (
+            <div key={mod} style={{background:"var(--bg2)",border:"1px solid var(--b)",
+              borderRadius:10,padding:"10px 11px",textAlign:"center"}}>
+              <div style={{fontSize:20,marginBottom:2}}>{cfg.icon}</div>
+              <div style={{fontSize:20,fontWeight:800,fontFamily:"var(--mono)",
+                color:s?.count>0?cfg.color:"var(--m)",lineHeight:1}}>
+                {s?.count||0}
+              </div>
+              <div style={{fontSize:9,color:"var(--m)",textTransform:"uppercase",letterSpacing:"1px",marginTop:2}}>
+                {cfg.label}
+              </div>
+              {s?.count>0 && <div style={{fontSize:9,color:cfg.color,marginTop:1}}>day streak 🔥</div>}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Progress bar */}
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <div style={{flex:1,height:4,background:"var(--bg4)",borderRadius:2,overflow:"hidden"}}>
+          <div style={{height:"100%",width:(doneTasks/totalTasks*100)+"%",background:"var(--a)",borderRadius:2,transition:"width .4s"}}/>
+        </div>
+        <div style={{fontSize:11,color:"var(--m)",fontFamily:"var(--mono)",flexShrink:0}}>
+          {doneTasks}/{totalTasks} done
         </div>
       </div>
-      {days.map((day,i)=>{
-        const isToday = weekStartDate ? isTodayDay(weekStartDate,day.day) : false;
-        const dateLabel = day.date_label || (weekStartDate ? dayDateLabel(weekStartDate,day.day) : day.day);
-        const shortDate = dateLabel.replace(/\w+,\s*/,"");
+
+      {/* Time-sorted tasks */}
+      <div style={{fontSize:9,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",
+        color:"var(--m)",marginBottom:8}}>Today's Schedule</div>
+
+      {tasks.map(task => {
+        const cfg = MODULE_CONFIG[task.module] || MODULE_CONFIG.fitness;
+        const isExpanded = expandedTask === task.id;
         return (
-          <div key={i} className={"bpr"+(day.is_rest?" rest":"")+(isToday?" today":"")}
-            onClick={()=>!day.is_rest&&setSelectedDay(day)}>
-            {isToday&&<div className="tdot"/>}
-            <div className="bp-date-col">
-              <div className="bpday">{day.day}</div>
-              <div className="bpdate">{shortDate}</div>
+          <div key={task.id} style={{marginBottom:7}}>
+            {/* Task row */}
+            <div className={"ti"+(task.done?" done":"")}
+              onClick={task.done ? ()=>setExpandedTask(t=>t===task.id?null:task.id) : task.onTap}
+              style={{borderColor:isExpanded?"var(--b2)":"var(--b)"}}>
+              <div className="tic" style={{background:cfg.bg,fontSize:18}}>{task.icon}</div>
+              <div className="tinfo">
+                <div className="tlbl">{task.label}</div>
+                <div className="tdsc">{task.desc}</div>
+              </div>
+              {task.done
+                ? <span className="tbdg d" style={{background:cfg.bg,color:cfg.color}}>Done ✓</span>
+                : <span className="tbdg p">Tap</span>}
+              {task.done && <span style={{color:"var(--m)",fontSize:12,marginLeft:4}}>↩</span>}
+              {!task.done && task.id!=="sleep" && <span style={{color:cfg.color,fontSize:15,marginLeft:4}}>›</span>}
             </div>
-            <div className={"bpctx "+ctxCls(day.context)}>{day.context||"—"}</div>
-            <div className="bptyp">{day.session_name||(day.is_rest?"Rest Day":"—")}</div>
-            <div className="bpwin">{day.time_window}</div>
-            {!day.is_rest&&<span style={{color:"var(--a)",fontSize:15,marginLeft:2}}>›</span>}
+
+            {/* Expanded session detail */}
+            {isExpanded && !task.done && task.day && (
+              <div style={{background:cfg.bg,border:"1px solid "+cfg.border,borderRadius:"0 0 10px 10px",
+                padding:"12px 14px",marginTop:-4,borderTop:"none",animation:"fadeup .2s ease"}}>
+                {task.sessionFocus && (
+                  <div style={{fontSize:12,color:"var(--m2)",lineHeight:1.65,marginBottom:10}}>
+                    {task.sessionFocus}
+                  </div>
+                )}
+                <button className="btn bp" style={{width:"100%",background:cfg.color==="var(--a)"?"linear-gradient(135deg,var(--a),#3DDFAA)":cfg.color}}
+                  onClick={()=>setCompletingTask(task)}>
+                  ✅ Mark Complete + Answer Questions
+                </button>
+              </div>
+            )}
           </div>
         );
       })}
-      {selectedDay && (
-        <DayDetailModal day={selectedDay} weekStartDate={weekStartDate}
-          onClose={()=>setSelectedDay(null)}/>
+
+      {dayData?.combined_analysis && <AiBox label="Day Observation" text={dayData.combined_analysis}/>}
+
+      {uploadOpen && <DailyUploadModal today={today}
+        todayPlan={weekPlan?.fitness?.days?.find(d=>d.day?.slice(0,3)===todayDayAbbr)}
+        onClose={()=>{setUploadOpen(false);load();}}
+        onDone={onAnalysisDone}/>}
+
+      {completingTask && (
+        <div className="ov" onClick={e=>e.target===e.currentTarget&&setCompletingTask(null)}>
+          <div className="modal">
+            <div className="mh">
+              <div>
+                <div className="mt">{completingTask.label}</div>
+                <div className="ms">{completingTask.desc}</div>
+              </div>
+              <button className="mcl" onClick={()=>setCompletingTask(null)}>×</button>
+            </div>
+            <div className="mb">
+              <SessionCompleteCard
+                module={completingTask.module}
+                sessionName={completingTask.label}
+                date={today}
+                weekStartDate={ws}
+                onDone={(res)=>{ setCompletingTask(null); load(); }}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -1183,36 +1346,37 @@ function DayDetailModal({ day, weekStartDate, onClose }) {
 }
 
 // Fetches and displays a specific week's plan by week_start date
-function WeekScheduleViewById({ weekStart: ws, currentWeekStart }) {
+function WeekScheduleViewById({ weekStart: ws, currentWeekStart, module="fitness", onComplete }) {
   const [plan, setPlan]           = useState(null);
   const [loading, setLoading]     = useState(true);
   const [selectedDay, setSelectedDay] = useState(null);
+  const cfg = MODULE_CONFIG[module] || MODULE_CONFIG.fitness;
 
   useEffect(()=>{
     setLoading(true);
-    api(`/data/week/${ws}`)
+    api("/data/week/" + ws)
       .then(p=>{ setPlan(p); setLoading(false); })
       .catch(()=>{ setPlan(null); setLoading(false); });
   },[ws]);
 
   if (loading) return <div style={{textAlign:"center",padding:"20px"}}><Dots/></div>;
 
-  const days = plan?.fitness?.days || [];
+  const days = (plan?.[module]?.days) || [];
   const ctxCls = c=>c?.includes("Work")&&c?.includes("College")?"cb":c==="Work"?"cw":c==="College"?"cc":c==="Off"?"co":"cr";
   const isCurrent = ws === currentWeekStart;
 
   if (days.length === 0) return (
-    <div className="empty-state">No plan data for this week.</div>
+    <div className="empty-state">No {module} plan for this week.</div>
   );
 
   return (
     <div>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
         <div style={{fontSize:12,fontWeight:700}}>
-          {plan?.fitness?.week_number ? `Week ${plan.fitness.week_number}` : "Week"}
+          {plan?.[module]?.week_number ? "Week " + plan[module].week_number : "Week"}
         </div>
         {isCurrent && <span style={{fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:4,
-          background:"rgba(92,255,176,0.1)",color:"var(--a)"}}>CURRENT</span>}
+          background:cfg.bg,color:cfg.color}}>CURRENT</span>}
         <div style={{fontSize:10,color:"var(--m)",fontFamily:"var(--mono)",marginLeft:"auto"}}>
           {weekRangeLabel(ws)}
         </div>
@@ -1223,8 +1387,8 @@ function WeekScheduleViewById({ weekStart: ws, currentWeekStart }) {
         const shortDate = dateLabel.replace(/\w+,\s*/, "");
         return (
           <div key={i} className={"bpr"+(day.is_rest?" rest":"")+(isToday?" today":"")}
-            onClick={()=>!day.is_rest&&setSelectedDay(day)}>
-            {isToday&&<div className="tdot"/>}
+            onClick={()=>{ if(!day.is_rest){ if(onComplete) onComplete(day); else setSelectedDay(day); } }}>
+            {isToday&&<div className="tdot" style={{background:cfg.color}}/>}
             <div className="bp-date-col">
               <div className="bpday">{day.day}</div>
               <div className="bpdate">{shortDate}</div>
@@ -1232,7 +1396,7 @@ function WeekScheduleViewById({ weekStart: ws, currentWeekStart }) {
             <div className={"bpctx "+ctxCls(day.context)}>{day.context||"—"}</div>
             <div className="bptyp">{day.session_name||(day.is_rest?"Rest Day":"—")}</div>
             <div className="bpwin">{day.time_window}</div>
-            {!day.is_rest&&<span style={{color:"var(--a)",fontSize:15,marginLeft:2}}>›</span>}
+            {!day.is_rest&&<span style={{color:cfg.color,fontSize:15,marginLeft:2}}>›</span>}
           </div>
         );
       })}
@@ -1245,178 +1409,9 @@ function WeekScheduleViewById({ weekStart: ws, currentWeekStart }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// FITNESS TAB — Blueprint, Review, Monthly, Goals. No schedule upload here.
+// FITNESS TAB — uses shared ModuleTab
 // ═══════════════════════════════════════════════════════════════════════════════
-function FitnessTab() {
-  const [sec, setSec]                   = useState("blueprint");
-  const [weekPlan, setWeekPlan]         = useState(null);
-  const [allWeeks, setAllWeeks]         = useState([]); // all uploaded weeks
-  const [viewWeek, setViewWeek]         = useState(null); // which week to display
-  const [loading, setLoading]           = useState(true);
-  const [selectedDay, setSelectedDay]   = useState(null);
-  const [compOpen, setCompOpen]         = useState(false);
-  const [compResult, setCompResult]     = useState(null);
-  const [review, setReview]             = useState(null);
-  const [reviewLoading, setReviewLoading] = useState(false);
-  const [monthReport, setMonthReport]   = useState(null);
-  const [monthLoading, setMonthLoading] = useState(false);
-
-  const ws = weekStart(todayStr());
-
-  const load = useCallback(async () => {
-    try {
-      const [p, weeks] = await Promise.all([
-        api(`/data/week/${ws}`),
-        api(`/data/all-weeks`),
-      ]);
-      setWeekPlan(p);
-      setAllWeeks(weeks.weeks || []);
-      setViewWeek(w => w || ws); // default to current week
-    } catch {
-      setWeekPlan(null);
-      setAllWeeks([]);
-    }
-    setLoading(false);
-  }, [ws]);
-
-  useEffect(()=>{load();},[load]);
-
-  // days and ctxCls are now inside WeekScheduleView / WeekScheduleViewById
-
-  const generateReview = async () => {
-    setReviewLoading(true);
-    try { const r=await api("/analyze/weekly-review",{method:"POST",body:JSON.stringify({week_start:ws})}); setReview(r.review); }
-    catch(e){alert(e.message);}
-    setReviewLoading(false);
-  };
-
-  const generateMonthly = async () => {
-    setMonthLoading(true);
-    try { const r=await api("/analyze/monthly-report",{method:"POST",body:JSON.stringify({month:new Date().toISOString().slice(0,7)})}); setMonthReport(r.report); }
-    catch(e){alert(e.message);}
-    setMonthLoading(false);
-  };
-
-  const SECS=[{id:"blueprint",l:"Blueprint"},{id:"review",l:"Weekly Review"},{id:"monthly",l:"Monthly"}];
-
-  return (
-    <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0,overflow:"hidden"}}>
-      <div className="subnav">
-        {SECS.map(s=><div key={s.id} className={"sni"+(sec===s.id?" on":"")} onClick={()=>setSec(s.id)}>{s.l}</div>)}
-      </div>
-      <div style={{flex:1,overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch"}}>
-        <div className="cnt">
-
-          {sec==="blueprint"&&(
-            <div>
-              {loading&&<div style={{textAlign:"center",padding:"30px",color:"var(--m)"}}><Dots/></div>}
-
-              {!loading&&allWeeks.length===0&&(
-                <div className="empty-state">
-                  <div style={{fontSize:30,marginBottom:8}}>📅</div>
-                  No schedule uploaded yet.<br/>
-                  <span style={{fontSize:11}}>Go to Settings → Upload Schedule.</span>
-                </div>
-              )}
-
-              {/* Uploaded schedule dates — show each week_start as a date pill */}
-              {!loading&&allWeeks.length>0&&(
-                <div style={{marginBottom:13}}>
-                  <div style={{fontSize:9,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",
-                    color:"var(--m)",marginBottom:8}}>Schedules uploaded</div>
-                  <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
-                    {allWeeks.map(wk=>{
-                      const d = new Date(wk.week_start + "T12:00:00");
-                      const label = d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
-                      const isCurrent = wk.week_start === ws;
-                      const isSelected = viewWeek === wk.week_start;
-                      return (
-                        <div key={wk.week_start}
-                          onClick={()=>setViewWeek(wk.week_start)}
-                          style={{padding:"7px 12px",borderRadius:8,cursor:"pointer",
-                            fontSize:11,fontWeight:700,fontFamily:"var(--mono)",
-                            border: isSelected ? "2px solid var(--a)" : "1px solid var(--b)",
-                            background: isSelected ? "rgba(92,255,176,0.07)" : "var(--bg3)",
-                            color: isSelected ? "var(--a)" : "var(--m2)",
-                            transition:"all .15s",display:"flex",alignItems:"center",gap:6}}>
-                          {label}
-                          {isCurrent && (
-                            <span style={{fontSize:8,padding:"1px 5px",borderRadius:3,
-                              background:"rgba(92,255,176,0.15)",color:"var(--a)",fontWeight:700}}>
-                              NOW
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Selected week plan */}
-              {!loading&&viewWeek&&(
-                <WeekScheduleViewById weekStart={viewWeek} currentWeekStart={ws}/>
-              )}
-            </div>
-          )}
-
-          {sec==="review"&&(
-            <div>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:13,flexWrap:"wrap",gap:8}}>
-                <div>
-                  <div style={{fontSize:13,fontWeight:700}}>Weekly Review</div>
-                  <div style={{fontSize:10,color:"var(--m)",marginTop:1}}>AI reads all 7 days of data</div>
-                </div>
-                <div style={{display:"flex",gap:6}}>
-                  <button className="btn bs bsm" onClick={()=>setCompOpen(true)}>📐 Body Comp</button>
-                  <button className="btn bp bsm" onClick={generateReview} disabled={reviewLoading}>
-                    {reviewLoading?<Dots/>:"✦ Generate"}
-                  </button>
-                </div>
-              </div>
-              {compResult&&<AiBox label="Body Composition Analysis" text={compResult}/>}
-              {review?<AiBox label="Weekly Review" text={review}/>:(
-                !reviewLoading&&<div className="empty-state">
-                  <div style={{fontSize:28,marginBottom:7}}>📊</div>
-                  AI reads all day observations, workout notes, and body comp from this week.
-                </div>
-              )}
-            </div>
-          )}
-
-          {sec==="monthly"&&(
-            <div>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:13}}>
-                <div>
-                  <div style={{fontSize:13,fontWeight:700}}>Monthly Report</div>
-                  <div style={{fontSize:10,color:"var(--m)",marginTop:1}}>AI reads 30 days of data</div>
-                </div>
-                <button className="btn bp bsm" onClick={generateMonthly} disabled={monthLoading}>
-                  {monthLoading?<Dots/>:"✦ Generate"}
-                </button>
-              </div>
-              {monthReport?<AiBox label="Monthly Report" text={monthReport}/>:(
-                !monthLoading&&<div className="empty-state">
-                  <div style={{fontSize:28,marginBottom:7}}>📅</div>
-                  Best after 2+ weeks of data.
-                </div>
-              )}
-            </div>
-          )}
-
-
-
-        </div>
-      </div>
-
-      {/* Day detail is now handled inside WeekScheduleViewById */}
-      {compOpen&&(
-        <BodyCompModal weekStartDate={ws} onClose={()=>setCompOpen(false)}
-          onDone={r=>{setCompResult(r);setCompOpen(false);}}/>
-      )}
-    </div>
-  );
-}
+function FitnessTab() { return <ModuleTab module="fitness"/>; }
 
 // ─── Body Comp ────────────────────────────────────────────────────────────────
 function BodyCompModal({ weekStartDate, onClose, onDone }) {
@@ -1910,6 +1905,21 @@ function SettingsTab({ onReset, lightMode, toggleLight }) {
 
         <div className="setting-row">
           <div className="sr-left">
+            <div className="sr-label">Auto-Complete Goals</div>
+            <div className="sr-desc">Automatically mark numeric goals complete when you hit the target 5 of last 7 sessions</div>
+          </div>
+          <div className={"toggle"+(localStorage.getItem("lifeos_auto_complete")!=="false"?" on":"")}
+            onClick={()=>{
+              const cur = localStorage.getItem("lifeos_auto_complete") !== "false";
+              localStorage.setItem("lifeos_auto_complete", (!cur).toString());
+              window.location.reload();
+            }}>
+            <div className="toggle-thumb"/>
+          </div>
+        </div>
+
+        <div className="setting-row">
+          <div className="sr-left">
             <div className="sr-label">Auto-Lock Timeout</div>
             <div className="sr-desc">Lock app after this many minutes of inactivity</div>
           </div>
@@ -1920,6 +1930,21 @@ function SettingsTab({ onReset, lightMode, toggleLight }) {
             <option value="10">10 min</option>
             <option value="30">30 min</option>
           </select>
+        </div>
+
+        <div className="setting-row">
+          <div className="sr-left">
+            <div className="sr-label">Auto-complete Goals</div>
+            <div className="sr-desc">Automatically mark numeric goals done when target is consistently hit (e.g. 50 WPM for 3 sessions)</div>
+          </div>
+          <div className={"toggle"+(localStorage.getItem("lifeos_auto_complete")!=="false"?" on":"")}
+            onClick={()=>{
+              const cur = localStorage.getItem("lifeos_auto_complete") !== "false";
+              localStorage.setItem("lifeos_auto_complete", (!cur).toString());
+              window.location.reload();
+            }}>
+            <div className="toggle-thumb"/>
+          </div>
         </div>
 
         <div className="setting-row">
@@ -2274,25 +2299,345 @@ function ResetModal({ onClose, onReset }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // PLACEHOLDER TABS
 // ═══════════════════════════════════════════════════════════════════════════════
-function HobbiesTab() {
-  return <ComingSoon icon="🎨" label="Hobbies" desc="Log hobbies, track progress, get AI coaching."
-    items={[{icon:"✏️",label:"Daily practice log"},{icon:"🎯",label:"Goal tracking"},{icon:"✨",label:"Weekly insight"}]}/>;
+// ═══════════════════════════════════════════════════════════════════════════════
+// SHARED MODULE COMPONENTS — used by Fitness, Skills, Hobbies
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Module color config
+
+
+// Post-session questions + completion inline
+
+// Module tab — full implementation for Fitness, Skills, Hobbies
+function ModuleTab({ module }) {
+  const cfg = MODULE_CONFIG[module] || MODULE_CONFIG.fitness;
+  const [sec, setSec]                 = useState("plan");
+  const [weekPlan, setWeekPlan]       = useState(null);
+  const [allWeeks, setAllWeeks]       = useState([]);
+  const [viewWeek, setViewWeek]       = useState(null);
+  const [loading, setLoading]         = useState(true);
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [completing, setCompleting]   = useState(null); // day being completed
+  const [review, setReview]           = useState(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [monthReport, setMonthReport] = useState(null);
+  const [monthLoading, setMonthLoading]   = useState(false);
+  const [stats, setStats]             = useState(null);
+  const [goals, setGoals]             = useState([]);
+  const [goalInput, setGoalInput]     = useState("");
+  const [goalMetric, setGoalMetric]   = useState("");
+  const [goalTarget, setGoalTarget]   = useState("");
+  const [addingGoal, setAddingGoal]   = useState(false);
+  const [compOpen, setCompOpen]       = useState(false);
+  const [compResult, setCompResult]   = useState(null);
+
+  const ws = weekStart(todayStr());
+
+  const load = useCallback(async () => {
+    try {
+      const [p, weeks] = await Promise.all([
+        api("/data/week/" + ws),
+        api("/data/all-weeks"),
+      ]);
+      const plan = p[module];
+      setWeekPlan(plan || null);
+      const allW = (weeks.weeks || []).filter(w => {
+        // only show weeks that have this module
+        return true; // all-weeks only returns fitness currently — fix later
+      });
+      setAllWeeks(weeks.weeks || []);
+      setViewWeek(v => v || ws);
+    } catch { setWeekPlan(null); }
+    setLoading(false);
+  }, [ws, module]);
+
+  const loadStats = useCallback(async () => {
+    try {
+      const [s, g] = await Promise.all([
+        api("/module/stats?module=" + module + "&week_start=" + ws),
+        api("/module/goals?module=" + module),
+      ]);
+      setStats(s);
+      setGoals(g.goals || []);
+    } catch {}
+  }, [module, ws]);
+
+  useEffect(() => { load(); loadStats(); }, [load, loadStats]);
+
+  const ctxCls = c => c?.includes("Work")&&c?.includes("College")?"cb":c==="Work"?"cw":c==="College"?"cc":c==="Off"?"co":"cr";
+  const days = weekPlan?.days || [];
+
+  const generateReview = async () => {
+    setReviewLoading(true);
+    try {
+      const r = await api("/module/review", {method:"POST", body:JSON.stringify({module, week_start: ws})});
+      setReview(r.review);
+    } catch(e) { alert(e.message); }
+    setReviewLoading(false);
+  };
+
+  const generateMonthly = async () => {
+    setMonthLoading(true);
+    try {
+      const r = await api("/analyze/monthly-report", {method:"POST", body:JSON.stringify({month: new Date().toISOString().slice(0,7), module})});
+      setMonthReport(r.report);
+    } catch(e) { alert(e.message); }
+    setMonthLoading(false);
+  };
+
+  const addGoal = async () => {
+    if (!goalInput.trim()) return;
+    setAddingGoal(true);
+    try {
+      const res = await api("/module/goals", {method:"POST", body:JSON.stringify({
+        module, text: goalInput.trim(),
+        target_metric: goalMetric.trim() || null,
+        target_value: parseFloat(goalTarget) || null,
+      })});
+      setGoals(g => [res, ...g]);
+      setGoalInput(""); setGoalMetric(""); setGoalTarget("");
+    } catch(e) { alert(e.message); }
+    setAddingGoal(false);
+  };
+
+  const deleteGoal = async id => {
+    setGoals(g => g.filter(x => x.id !== id));
+    await api("/module/goals/" + id, {method:"DELETE"}).catch(()=>{});
+  };
+
+  const SECS = [{id:"plan",l:"Plan"},{id:"progress",l:"Progress"}];
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0,overflow:"hidden"}}>
+      <div className="subnav">
+        {SECS.map(s=><div key={s.id} className={"sni"+(sec===s.id?" on":"")} onClick={()=>setSec(s.id)}>{s.l}</div>)}
+      </div>
+      <div style={{flex:1,overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch"}}>
+        <div className="cnt">
+
+          {/* ── PLAN TAB ── */}
+          {sec==="plan" && (
+            <div>
+              {loading && <div style={{textAlign:"center",padding:"30px"}}><Dots/></div>}
+
+              {/* Week selector */}
+              {!loading && allWeeks.length > 0 && (
+                <div style={{marginBottom:13}}>
+                  <div style={{fontSize:9,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",color:"var(--m)",marginBottom:8}}>Uploaded weeks</div>
+                  <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+                    {allWeeks.map(wk => {
+                      const d = new Date(wk.week_start + "T12:00:00");
+                      const label = d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+                      const isCurrent = wk.week_start === ws;
+                      const isSelected = viewWeek === wk.week_start;
+                      return (
+                        <div key={wk.week_start} onClick={()=>setViewWeek(wk.week_start)}
+                          style={{padding:"6px 11px",borderRadius:8,cursor:"pointer",
+                            fontSize:11,fontWeight:700,fontFamily:"var(--mono)",
+                            border:isSelected?"2px solid "+cfg.color:"1px solid var(--b)",
+                            background:isSelected?cfg.bg:"var(--bg3)",
+                            color:isSelected?cfg.color:"var(--m2)",
+                            transition:"all .15s",display:"flex",alignItems:"center",gap:6}}>
+                          {label}
+                          {isCurrent && <span style={{fontSize:8,padding:"1px 5px",borderRadius:3,background:cfg.bg,color:cfg.color,fontWeight:700}}>NOW</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {!loading && allWeeks.length === 0 && (
+                <div className="empty-state">
+                  <div style={{fontSize:28,marginBottom:8}}>{cfg.icon}</div>
+                  No {cfg.label.toLowerCase()} schedule yet.<br/>
+                  <span style={{fontSize:11}}>Upload your fitness schedule in Settings — all 3 modules generate automatically.</span>
+                </div>
+              )}
+
+              {/* Selected week plan */}
+              {!loading && viewWeek && allWeeks.length > 0 && (
+                <WeekScheduleViewById weekStart={viewWeek} currentWeekStart={ws}
+                  module={module} onComplete={(day) => setCompleting(day)}/>
+              )}
+
+              {/* Weekly Review */}
+              <div style={{marginTop:20,paddingTop:16,borderTop:"1px solid var(--b)"}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                  <div style={{fontSize:13,fontWeight:700}}>Weekly Review</div>
+                  <button className="btn bp bsm" onClick={generateReview} disabled={reviewLoading}>
+                    {reviewLoading ? <Dots/> : "✦ Generate"}
+                  </button>
+                </div>
+                {review ? <AiBox label={"Weekly " + cfg.label + " Review"} text={review}/> : (
+                  !reviewLoading && <div className="empty-state" style={{minHeight:60}}>
+                    AI reads all your session answers and observations from this week.
+                  </div>
+                )}
+              </div>
+
+              {/* Monthly Report */}
+              <div style={{marginTop:20,paddingTop:16,borderTop:"1px solid var(--b)"}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                  <div style={{fontSize:13,fontWeight:700}}>Monthly Report</div>
+                  <button className="btn bp bsm" onClick={generateMonthly} disabled={monthLoading}>
+                    {monthLoading ? <Dots/> : "✦ Generate"}
+                  </button>
+                </div>
+                {module === "fitness" && (
+                  <button className="btn bs bsm" style={{marginBottom:8}} onClick={()=>setCompOpen(true)}>📐 Body Comp</button>
+                )}
+                {compResult && <AiBox label="Body Composition" text={compResult}/>}
+                {monthReport ? <AiBox label={"Monthly " + cfg.label + " Report"} text={monthReport}/> : (
+                  !monthLoading && <div className="empty-state" style={{minHeight:60}}>
+                    Best after 2+ weeks of data.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── PROGRESS TAB ── */}
+          {sec==="progress" && (
+            <div>
+              {/* Streak stats */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9,marginBottom:16}}>
+                {[
+                  {label:"Current Streak", value: stats?.streak?.count || 0, suffix:"d"},
+                  {label:"Best Streak",    value: stats?.streak?.best_streak || 0, suffix:"d"},
+                  {label:"This Week",      value: stats?.sessions_this_week || 0, suffix:" sessions"},
+                ].map((s,i) => (
+                  <div key={i} style={{background:"var(--bg2)",border:"1px solid var(--b)",borderRadius:10,padding:"10px 12px"}}>
+                    <div style={{fontSize:9,color:"var(--m)",letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:4}}>{s.label}</div>
+                    <div style={{fontSize:22,fontWeight:800,fontFamily:"var(--mono)",color:cfg.color,lineHeight:1}}>
+                      {s.value}<span style={{fontSize:11,fontWeight:400,color:"var(--m)"}}>{s.suffix}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9,marginBottom:20}}>
+                {[
+                  {label:"This Month",  value: stats?.sessions_this_month || 0, suffix:" sessions"},
+                  {label:"All Time",    value: stats?.sessions_all_time || 0, suffix:" sessions"},
+                ].map((s,i) => (
+                  <div key={i} style={{background:"var(--bg2)",border:"1px solid var(--b)",borderRadius:10,padding:"10px 12px"}}>
+                    <div style={{fontSize:9,color:"var(--m)",letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:4}}>{s.label}</div>
+                    <div style={{fontSize:20,fontWeight:800,fontFamily:"var(--mono)",color:cfg.color,lineHeight:1}}>
+                      {s.value}<span style={{fontSize:11,fontWeight:400,color:"var(--m)"}}>{s.suffix}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Latest AI review */}
+              {stats?.latest_review && (
+                <AiBox label={"Latest " + cfg.label + " Review"} text={stats.latest_review.review_text}/>
+              )}
+
+              {/* Goals */}
+              <div style={{marginTop:20,paddingTop:16,borderTop:"1px solid var(--b)"}}>
+                <div style={{fontSize:13,fontWeight:700,marginBottom:4}}>{cfg.label} Goals</div>
+                <div style={{fontSize:10,color:"var(--m)",marginBottom:12}}>
+                  Add a measurable target to enable auto-complete tracking
+                </div>
+
+                {/* Goal input */}
+                <div style={{marginBottom:12}}>
+                  <input className="inp" style={{marginBottom:7}} placeholder={"e.g. " + (module==="skills"?"Reach 50 WPM":module==="hobbies"?"Play guitar 3x/week":"Do 15 pull-ups")}
+                    value={goalInput} onChange={e=>setGoalInput(e.target.value)}/>
+                  <div style={{display:"flex",gap:7}}>
+                    <input className="inp" style={{flex:1}} placeholder="Metric (e.g. WPM, kg, reps) — optional"
+                      value={goalMetric} onChange={e=>setGoalMetric(e.target.value)}/>
+                    <input className="inp" style={{width:80}} placeholder="Target #"
+                      value={goalTarget} onChange={e=>setGoalTarget(e.target.value)} type="number"/>
+                    <button className="btn bp bsm" onClick={addGoal} disabled={addingGoal||!goalInput.trim()}>
+                      {addingGoal?<Dots/>:"Add"}
+                    </button>
+                  </div>
+                </div>
+
+                {goals.length === 0 && <div className="empty-state" style={{minHeight:60}}>No goals yet.</div>}
+                {goals.map(g => (
+                  <div key={g.id} style={{background:g.auto_completed?"rgba(255,209,102,0.08)":"var(--bg2)",
+                    border:"1px solid "+(g.auto_completed?"rgba(255,209,102,0.3)":"var(--b)"),
+                    borderRadius:10,padding:"11px 13px",marginBottom:7,
+                    display:"flex",alignItems:"flex-start",gap:10}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:600,textDecoration:g.auto_completed?"line-through":"none",
+                        color:g.auto_completed?"var(--m)":"var(--t)",marginBottom:3}}>
+                        {g.auto_completed && "🏆 "}{g.text}
+                      </div>
+                      {g.target_metric && (
+                        <div style={{fontSize:11,color:"var(--m2)",fontFamily:"var(--mono)"}}>
+                          Target: {g.target_metric} = {g.target_value}
+                          {g.current_value ? " · Current: " + g.current_value : ""}
+                          {g.auto_completed ? " · Completed " + (g.completed_date || "") : ""}
+                        </div>
+                      )}
+                    </div>
+                    {!g.auto_completed && (
+                      <button className="gc-btn" onClick={()=>deleteGoal(g.id)}>✕</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Day detail modal */}
+      {selectedDay && (
+        <DayDetailModal day={selectedDay} weekStartDate={viewWeek}
+          onClose={()=>setSelectedDay(null)}/>
+      )}
+
+      {/* Session complete card shown as modal */}
+      {completing && (
+        <div className="ov" onClick={e=>e.target===e.currentTarget&&setCompleting(null)}>
+          <div className="modal">
+            <div className="mh">
+              <div>
+                <div className="mt">{completing.session_name || "Complete Session"}</div>
+                <div className="ms">{completing.day} · {completing.time_window || ""}</div>
+              </div>
+              <button className="mcl" onClick={()=>setCompleting(null)}>×</button>
+            </div>
+            <div className="mb">
+              <SessionCompleteCard
+                module={module}
+                sessionName={completing.session_name || "Session"}
+                date={viewWeek ? dayDate(viewWeek, completing.day).toISOString().slice(0,10) : todayStr()}
+                weekStartDate={viewWeek}
+                onDone={(res)=>{setCompleting(null); loadStats();}}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {compOpen && (
+        <BodyCompModal weekStartDate={ws} onClose={()=>setCompOpen(false)}
+          onDone={r=>{setCompResult(r);setCompOpen(false);}}/>
+      )}
+    </div>
+  );
 }
-function SkillsTab() {
-  return <ComingSoon icon="📚" label="Skills" desc="Log learning, track progression, AI guidance."
-    items={[{icon:"📝",label:"Learning log"},{icon:"📊",label:"Skill progression"},{icon:"✨",label:"AI suggestions"}]}/>;
-}
+
+function HobbiesTab() { return <ModuleTab module="hobbies"/>; }
+function SkillsTab()  { return <ModuleTab module="skills"/>; }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // NAV
 // ═══════════════════════════════════════════════════════════════════════════════
 const NAV = [
-  { id:"home",     icon:"🏠", label:"Home",    built:true  },
-  { id:"fitness",  icon:"🏋️", label:"Fitness", built:true  },
-  { id:"notes",    icon:"📝", label:"Notes",   built:true  },
-  { id:"hobbies",  icon:"🎨", label:"Hobbies", built:false },
-  { id:"skills",   icon:"📚", label:"Skills",  built:false },
-  { id:"settings", icon:"⚙️", label:"Settings",built:true  },
+  { id:"home",     icon:"🏠", label:"Home",    built:true },
+  { id:"fitness",  icon:"🏋️", label:"Fitness", built:true },
+  { id:"skills",   icon:"📚", label:"Skills",  built:true },
+  { id:"hobbies",  icon:"🎨", label:"Hobbies", built:true },
+  { id:"notes",    icon:"📝", label:"Notes",   built:true },
+  { id:"settings", icon:"⚙️", label:"Settings",built:true },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2424,8 +2769,8 @@ export default function App() {
           </div>
 
           <div className="tab-content">
-            {tab==="home"     && <TodayTab streak={streak} weekPlan={weekPlan}/>}
-            {tab==="fitness"  && <FitnessTab/>}
+            {tab==="home"     && <HomeTab/>}
+            {tab==="fitness"  && <ModuleTab module="fitness"/>}
             {tab==="notes"    && <NotesTab/>}
             {tab==="hobbies"  && <HobbiesTab/>}
             {tab==="skills"   && <SkillsTab/>}
