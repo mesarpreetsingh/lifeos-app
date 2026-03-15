@@ -713,14 +713,20 @@ function LoginScreen({ onLogin }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 function Dots() { return <div className="dots"><span/><span/><span/></div>; }
 function Err({ msg }) { return msg ? <div className="err-banner">⚠ {msg}</div> : null; }
+function stripStars(text) {
+  // Remove all asterisks used for markdown — **, *, ***
+  return text
+    .replace(/\*\*\*([^*]+)\*\*\*/g, '$1')   // ***bold italic*** -> plain
+    .replace(/\*\*([^*]+)\*\*/g, '$1')         // **bold** -> plain
+    .replace(/\*([^*\s][^*]*[^*\s])\*/g, '$1') // *italic* -> plain
+    .replace(/^\s*[\*\-]\s+/, '')               // leading bullet * or - -> nothing
+    .replace(/\\*/g, '*');                     // escaped star -> star
+}
+
 function parseBold(line) {
-  // Split on **bold** and return array of strings and <strong> elements
-  const parts = line.split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((p, i) =>
-    p.startsWith('**') && p.endsWith('**')
-      ? <strong key={i} style={{color:"var(--t)",fontWeight:700}}>{p.slice(2,-2)}</strong>
-      : p
-  );
+  // Remove markdown stars entirely — show as plain text
+  // We no longer bold anything since AI is instructed not to use markdown
+  return stripStars(line);
 }
 
 function renderAI(text) {
@@ -750,11 +756,10 @@ function renderAI(text) {
       continue;
     }
 
-    // Bullet lines: starts with "- ", "• ", or "* "
-    const isBullet = trimmed.startsWith('- ') || trimmed.startsWith('• ') || trimmed.startsWith('* ');
+    // Bullet lines: starts with "- ", "• ", "* ", or "· "
+    const isBullet = /^[-•*·]\s/.test(trimmed);
     if (isBullet) {
-      // Strip the bullet prefix before parsing bold
-      const stripped = trimmed.replace(/^[-•*]\s+/, '');
+      const stripped = trimmed.replace(/^[-•*·]\s+/, '');
       elements.push(
         <div key={key++} style={{display:"flex",gap:8,marginBottom:4,paddingLeft:2,alignItems:"flex-start"}}>
           <span style={{color:"var(--a)",flexShrink:0,fontSize:14,lineHeight:"1.6",marginTop:1}}>·</span>
@@ -764,7 +769,7 @@ function renderAI(text) {
       continue;
     }
 
-    // Normal line
+    // Normal line — strip any stray stars before rendering
     elements.push(
       <div key={key++} style={{fontSize:12.5,lineHeight:1.75,color:"var(--m2)",marginBottom:2}}>
         {parseBold(trimmed)}
@@ -1528,12 +1533,13 @@ function GoalsSection() {
 // Only AI-processed results shown below.
 // ═══════════════════════════════════════════════════════════════════════════════
 function NotesTab() {
-  const [processedNotes, setProcessedNotes] = useState([]); // {id, context, updated_at}
-  const [rawNotes, setRawNotes]             = useState([]); // unprocessed notes
-  const [input, setInput]                   = useState("");
-  const [adding, setAdding]                 = useState(false);
-  const [processing, setProcessing]         = useState(false);
-  const [loading, setLoading]               = useState(true);
+  const [aiContext, setAiContext]   = useState(null);   // latest AI-processed context
+  const [rawNotes, setRawNotes]     = useState([]);     // notes saved but not yet processed
+  const [allNotes, setAllNotes]     = useState([]);     // all notes ever saved
+  const [input, setInput]           = useState("");
+  const [adding, setAdding]         = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [loading, setLoading]       = useState(true);
 
   const load = async () => {
     try {
@@ -1541,37 +1547,47 @@ function NotesTab() {
         api("/notes").catch(()=>({notes:[]})),
         api("/notes/context").catch(()=>({context:null})),
       ]);
-      setRawNotes(n.notes||[]);
-      // Build processed notes history from notes_context
-      if(c.context) {
-        setProcessedNotes([{id:1, context:c.context, updated_at: new Date().toISOString()}]);
-      }
-    }catch{}
+      const notes = n.notes || [];
+      setAllNotes(notes);
+      // Raw = notes that haven't been processed yet (after last context update)
+      // We approximate this as all notes (user can always re-process)
+      setRawNotes(notes);
+      if (c.context) setAiContext(c.context);
+    } catch {}
     setLoading(false);
   };
 
   useEffect(()=>{load();},[]);
 
   const addNote = async () => {
-    if(!input.trim())return;setAdding(true);
+    if(!input.trim()) return;
+    setAdding(true);
     try {
-      await api("/notes",{method:"POST",body:JSON.stringify({content:input.trim()})});
+      const res = await api("/notes", {method:"POST", body:JSON.stringify({content:input.trim()})});
+      // Optimistically add to local state without full reload
+      const newNote = res.note || {id:Date.now(), content:input.trim(), created_at:new Date().toISOString()};
+      setAllNotes(prev => [newNote, ...prev]);
+      setRawNotes(prev => [newNote, ...prev]);
       setInput("");
-      await load();
-    }catch{}
+    } catch(e) { alert("Failed to save note: " + e.message); }
     setAdding(false);
   };
 
   const processNotes = async () => {
-    if(rawNotes.length===0)return;
+    if(allNotes.length===0) return;
     setProcessing(true);
     try {
-      const res=await api("/notes/process",{method:"POST"});
-      // After processing, clear raw notes display (they're still in DB for AI)
-      setProcessedNotes([{id:Date.now(),context:res.context,updated_at:new Date().toISOString()}]);
-      setRawNotes([]);
-    }catch(e){alert(e.message);}
+      const res = await api("/notes/process", {method:"POST"});
+      setAiContext(res.context);
+      setRawNotes([]); // all notes are now processed
+    } catch(e) { alert(e.message); }
     setProcessing(false);
+  };
+
+  const deleteNote = async (id) => {
+    setAllNotes(prev => prev.filter(n => n.id !== id));
+    setRawNotes(prev => prev.filter(n => n.id !== id));
+    await api(`/notes/${id}`, {method:"DELETE"}).catch(()=>{});
   };
 
   if(loading)return<div className="cnt" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:200}}><Dots/></div>;
@@ -1594,48 +1610,44 @@ function NotesTab() {
           {adding?<Dots/>:"Add Note"}
         </button>
         <button className="btn bs" onClick={processNotes}
-          disabled={processing||rawNotes.length===0} style={{flex:"1 1 180px"}}>
+          disabled={processing||allNotes.length===0} style={{flex:"1 1 180px"}}>
           {processing?<><Dots/> Processing…</>:"✦ Process All Notes → AI Context"}
         </button>
       </div>
 
-      {/* Unprocessed raw notes — shown until processed */}
-      {rawNotes.length>0&&(
-        <div style={{marginBottom:16}}>
-          <div style={{fontSize:9,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",
-            color:"var(--m)",marginBottom:8}}>
-            {rawNotes.length} note{rawNotes.length>1?"s":""} pending processing
+      {/* Process button disabled only if no notes at all */}
+      
+      {/* AI context — show at top so user can see what AI knows */}
+      {aiContext && (
+        <div className="processed-note" style={{marginBottom:16}}>
+          <div className="pn-meta">
+            ✦ Active AI context — injected into every AI call
+            <span style={{color:"var(--m)",marginLeft:"auto",fontSize:9}}>tap Process to refresh</span>
           </div>
-          {rawNotes.map(n=>(
-            <div key={n.id} style={{background:"var(--bg2)",border:"1px solid var(--b)",
-              borderRadius:9,padding:"10px 13px",marginBottom:6,fontSize:12.5,
-              color:"var(--m2)",lineHeight:1.65}}>
-              {n.content}
-            </div>
-          ))}
+          <div className="pn-body">{aiContext}</div>
         </div>
       )}
 
-      {/* AI processed results */}
-      {processedNotes.length>0&&(
+      {/* All saved notes with delete */}
+      {allNotes.length>0 ? (
         <div>
           <div style={{fontSize:9,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",
-            color:"var(--a)",marginBottom:8}}>✦ AI Context — injected into every AI call</div>
-          {processedNotes.map(pn=>(
-            <div key={pn.id} className="processed-note">
-              <div className="pn-meta">
-                ✦ Processed context
-                <span style={{color:"var(--m)",marginLeft:"auto"}}>
-                  {new Date(pn.updated_at).toLocaleDateString("en-US",{month:"short",day:"numeric"})}
-                </span>
+            color:"var(--m)",marginBottom:8}}>
+            {allNotes.length} saved note{allNotes.length>1?"s":""}
+          </div>
+          {allNotes.map(n=>(
+            <div key={n.id} className="note-card">
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                <div style={{fontSize:9,color:"var(--m)",fontFamily:"var(--mono)"}}>
+                  {new Date(n.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
+                </div>
+                <button className="gc-btn" onClick={()=>deleteNote(n.id)}>✕</button>
               </div>
-              <div className="pn-body">{pn.context}</div>
+              <div style={{fontSize:13,lineHeight:1.65,color:"var(--t)",whiteSpace:"pre-wrap"}}>{n.content}</div>
             </div>
           ))}
         </div>
-      )}
-
-      {rawNotes.length===0&&processedNotes.length===0&&(
+      ) : (
         <div className="empty-state">
           <div style={{fontSize:26,marginBottom:7}}>📝</div>
           No notes yet. Add your first note above.
