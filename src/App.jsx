@@ -714,18 +714,13 @@ function LoginScreen({ onLogin }) {
 function Dots() { return <div className="dots"><span/><span/><span/></div>; }
 function Err({ msg }) { return msg ? <div className="err-banner">⚠ {msg}</div> : null; }
 function stripStars(text) {
-  // Remove all asterisks used for markdown — **, *, ***
-  return text
-    .replace(/\*\*\*([^*]+)\*\*\*/g, '$1')   // ***bold italic*** -> plain
-    .replace(/\*\*([^*]+)\*\*/g, '$1')         // **bold** -> plain
-    .replace(/\*([^*\s][^*]*[^*\s])\*/g, '$1') // *italic* -> plain
-    .replace(/^\s*[\*\-]\s+/, '')               // leading bullet * or - -> nothing
-    .replace(/\\*/g, '*');                     // escaped star -> star
+  if (!text) return '';
+  // Nuclear: remove every single asterisk — AI is told not to use markdown
+  // Any remaining * is always garbage so we just delete them all
+  return text.replace(/\*/g, '');
 }
 
 function parseBold(line) {
-  // Remove markdown stars entirely — show as plain text
-  // We no longer bold anything since AI is instructed not to use markdown
   return stripStars(line);
 }
 
@@ -744,35 +739,38 @@ function renderAI(text) {
       continue;
     }
 
+    // Strip stars from trimmed line before any detection
+    const clean = stripStars(trimmed);
+
     // Section headers: short ALL-CAPS lines ending with colon e.g. "SLEEP METRICS:"
-    if (/^[A-Z][A-Z\s\/\-]+:$/.test(trimmed) && trimmed.length < 60) {
+    if (/^[A-Z][A-Z\s\/\-]+:$/.test(clean) && clean.length < 60) {
       elements.push(
         <div key={key++} style={{fontSize:9,fontWeight:700,letterSpacing:"1.5px",
           textTransform:"uppercase",color:"var(--a)",marginTop:12,marginBottom:4,
           paddingBottom:3,borderBottom:"1px solid var(--b)"}}>
-          {trimmed.replace(/:$/, '')}
+          {clean.replace(/:$/, '')}
         </div>
       );
       continue;
     }
 
-    // Bullet lines: starts with "- ", "• ", "* ", or "· "
-    const isBullet = /^[-•*·]\s/.test(trimmed);
+    // Bullet lines: starts with "- ", "• ", or "· " (stars already stripped so no * here)
+    const isBullet = /^[-•·]\s/.test(clean);
     if (isBullet) {
-      const stripped = trimmed.replace(/^[-•*·]\s+/, '');
+      const stripped = clean.replace(/^[-•·]\s+/, '');
       elements.push(
         <div key={key++} style={{display:"flex",gap:8,marginBottom:4,paddingLeft:2,alignItems:"flex-start"}}>
           <span style={{color:"var(--a)",flexShrink:0,fontSize:14,lineHeight:"1.6",marginTop:1}}>·</span>
-          <span style={{fontSize:12.5,lineHeight:1.7,color:"var(--m2)",flex:1}}>{parseBold(stripped)}</span>
+          <span style={{fontSize:12.5,lineHeight:1.7,color:"var(--m2)",flex:1}}>{stripped}</span>
         </div>
       );
       continue;
     }
 
-    // Normal line — strip any stray stars before rendering
+    // Normal line — clean already has stars stripped
     elements.push(
       <div key={key++} style={{fontSize:12.5,lineHeight:1.75,color:"var(--m2)",marginBottom:2}}>
-        {parseBold(trimmed)}
+        {clean}
       </div>
     );
   }
