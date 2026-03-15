@@ -881,7 +881,7 @@ function SessionCompleteCard({ module, sessionName, date, weekStartDate, onDone 
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult]         = useState(null);
   const [err, setErr]               = useState(null);
-  const autoComplete = localStorage.getItem("lifeos_auto_complete") !== "false";
+
 
   useEffect(() => {
     api("/module/session/questions", {method:"POST",
@@ -904,16 +904,11 @@ function SessionCompleteCard({ module, sessionName, date, weekStartDate, onDone 
         body: JSON.stringify({
           module, session_name: sessionName, date,
           answers: answersArr, duration_minutes: 0,
-          auto_complete_enabled: autoComplete,
+
         })
       });
       setResult(res);
-      if (res.completed_goals?.length) {
-        // Show goal completion notification
-        setTimeout(() => onDone(res), 2000);
-      } else {
-        onDone(res);
-      }
+      onDone(res);
     } catch(e) { setErr(e.message); }
     setSubmitting(false);
   };
@@ -922,12 +917,7 @@ function SessionCompleteCard({ module, sessionName, date, weekStartDate, onDone 
 
   return (
     <div style={{marginTop:10,padding:"12px 14px",background:cfg.bg,borderRadius:9,border:"1px solid "+cfg.border}}>
-      {result?.completed_goals?.map((g,i) => (
-        <div key={i} style={{background:"rgba(255,209,102,0.12)",border:"1px solid rgba(255,209,102,0.3)",
-          borderRadius:7,padding:"8px 11px",marginBottom:10,fontSize:12}}>
-          🏆 Goal auto-completed: <b style={{fontWeight:600}}>{g.goalText}</b> — hit {g.metric} {g.achieved} (target: {g.target})
-        </div>
-      ))}
+
       {questions.length === 0 ? (
         <div style={{fontSize:12,color:"var(--m2)",marginBottom:8}}>How did the session feel? (optional)</div>
       ) : (
@@ -951,7 +941,7 @@ function SessionCompleteCard({ module, sessionName, date, weekStartDate, onDone 
           {submitting ? <><Dots/> Saving…</> : "✅ Submit & Complete"}
         </button>
       )}
-      {result && !result.completed_goals?.length && (
+      {result && (
         <div style={{fontSize:12,color:cfg.color,fontWeight:600,textAlign:"center",padding:"4px 0"}}>✓ Session logged</div>
       )}
       {result?.observation && <AiBox label="Session insight" text={result.observation}/>}
@@ -1907,21 +1897,6 @@ function SettingsTab({ onReset, lightMode, toggleLight }) {
 
         <div className="setting-row">
           <div className="sr-left">
-            <div className="sr-label">Auto-Complete Goals</div>
-            <div className="sr-desc">Automatically mark numeric goals complete when you hit the target 5 of last 7 sessions</div>
-          </div>
-          <div className={"toggle"+(localStorage.getItem("lifeos_auto_complete")!=="false"?" on":"")}
-            onClick={()=>{
-              const cur = localStorage.getItem("lifeos_auto_complete") !== "false";
-              localStorage.setItem("lifeos_auto_complete", (!cur).toString());
-              window.location.reload();
-            }}>
-            <div className="toggle-thumb"/>
-          </div>
-        </div>
-
-        <div className="setting-row">
-          <div className="sr-left">
             <div className="sr-label">Auto-Lock Timeout</div>
             <div className="sr-desc">Lock app after this many minutes of inactivity</div>
           </div>
@@ -1932,21 +1907,6 @@ function SettingsTab({ onReset, lightMode, toggleLight }) {
             <option value="10">10 min</option>
             <option value="30">30 min</option>
           </select>
-        </div>
-
-        <div className="setting-row">
-          <div className="sr-left">
-            <div className="sr-label">Auto-complete Goals</div>
-            <div className="sr-desc">Automatically mark numeric goals done when target is consistently hit (e.g. 50 WPM for 3 sessions)</div>
-          </div>
-          <div className={"toggle"+(localStorage.getItem("lifeos_auto_complete")!=="false"?" on":"")}
-            onClick={()=>{
-              const cur = localStorage.getItem("lifeos_auto_complete") !== "false";
-              localStorage.setItem("lifeos_auto_complete", (!cur).toString());
-              window.location.reload();
-            }}>
-            <div className="toggle-thumb"/>
-          </div>
         </div>
 
         <div className="setting-row">
@@ -2325,11 +2285,7 @@ function ModuleTab({ module }) {
   const [monthReport, setMonthReport] = useState(null);
   const [monthLoading, setMonthLoading]   = useState(false);
   const [stats, setStats]             = useState(null);
-  const [goals, setGoals]             = useState([]);
-  const [goalInput, setGoalInput]     = useState("");
-  const [goalMetric, setGoalMetric]   = useState("");
-  const [goalTarget, setGoalTarget]   = useState("");
-  const [addingGoal, setAddingGoal]   = useState(false);
+
   const [compOpen, setCompOpen]       = useState(false);
   const [compResult, setCompResult]   = useState(null);
 
@@ -2355,12 +2311,8 @@ function ModuleTab({ module }) {
 
   const loadStats = useCallback(async () => {
     try {
-      const [s, g] = await Promise.all([
-        api("/module/stats?module=" + module + "&week_start=" + ws),
-        api("/module/goals?module=" + module),
-      ]);
+      const s = await api("/module/stats?module=" + module + "&week_start=" + ws);
       setStats(s);
-      setGoals(g.goals || []);
     } catch {}
   }, [module, ws]);
 
@@ -2387,25 +2339,7 @@ function ModuleTab({ module }) {
     setMonthLoading(false);
   };
 
-  const addGoal = async () => {
-    if (!goalInput.trim()) return;
-    setAddingGoal(true);
-    try {
-      const res = await api("/module/goals", {method:"POST", body:JSON.stringify({
-        module, text: goalInput.trim(),
-        target_metric: goalMetric.trim() || null,
-        target_value: parseFloat(goalTarget) || null,
-      })});
-      setGoals(g => [res, ...g]);
-      setGoalInput(""); setGoalMetric(""); setGoalTarget("");
-    } catch(e) { alert(e.message); }
-    setAddingGoal(false);
-  };
 
-  const deleteGoal = async id => {
-    setGoals(g => g.filter(x => x.id !== id));
-    await api("/module/goals/" + id, {method:"DELETE"}).catch(()=>{});
-  };
 
   const SECS = [{id:"plan",l:"Plan"},{id:"progress",l:"Progress"}];
 
@@ -2537,52 +2471,14 @@ function ModuleTab({ module }) {
                 <AiBox label={"Latest " + cfg.label + " Review"} text={stats.latest_review.review_text}/>
               )}
 
-              {/* Goals */}
+              {/* Goals come from Notes — no manual input here */}
               <div style={{marginTop:20,paddingTop:16,borderTop:"1px solid var(--b)"}}>
                 <div style={{fontSize:13,fontWeight:700,marginBottom:4}}>{cfg.label} Goals</div>
-                <div style={{fontSize:10,color:"var(--m)",marginBottom:12}}>
-                  Add a measurable target to enable auto-complete tracking
+                <div style={{fontSize:11,color:"var(--m2)",lineHeight:1.65,padding:"10px 12px",
+                  background:"var(--bg3)",borderRadius:9,border:"1px solid var(--b)"}}>
+                  Add goals in the Notes tab — write anything like "I want to reach 50 WPM" or "practice guitar 3x/week". 
+                  AI automatically reads your notes and builds your {cfg.label.toLowerCase()} schedule around them.
                 </div>
-
-                {/* Goal input */}
-                <div style={{marginBottom:12}}>
-                  <input className="inp" style={{marginBottom:7}} placeholder={"e.g. " + (module==="skills"?"Reach 50 WPM":module==="hobbies"?"Play guitar 3x/week":"Do 15 pull-ups")}
-                    value={goalInput} onChange={e=>setGoalInput(e.target.value)}/>
-                  <div style={{display:"flex",gap:7}}>
-                    <input className="inp" style={{flex:1}} placeholder="Metric (e.g. WPM, kg, reps) — optional"
-                      value={goalMetric} onChange={e=>setGoalMetric(e.target.value)}/>
-                    <input className="inp" style={{width:80}} placeholder="Target #"
-                      value={goalTarget} onChange={e=>setGoalTarget(e.target.value)} type="number"/>
-                    <button className="btn bp bsm" onClick={addGoal} disabled={addingGoal||!goalInput.trim()}>
-                      {addingGoal?<Dots/>:"Add"}
-                    </button>
-                  </div>
-                </div>
-
-                {goals.length === 0 && <div className="empty-state" style={{minHeight:60}}>No goals yet.</div>}
-                {goals.map(g => (
-                  <div key={g.id} style={{background:g.auto_completed?"rgba(255,209,102,0.08)":"var(--bg2)",
-                    border:"1px solid "+(g.auto_completed?"rgba(255,209,102,0.3)":"var(--b)"),
-                    borderRadius:10,padding:"11px 13px",marginBottom:7,
-                    display:"flex",alignItems:"flex-start",gap:10}}>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:13,fontWeight:600,textDecoration:g.auto_completed?"line-through":"none",
-                        color:g.auto_completed?"var(--m)":"var(--t)",marginBottom:3}}>
-                        {g.auto_completed && "🏆 "}{g.text}
-                      </div>
-                      {g.target_metric && (
-                        <div style={{fontSize:11,color:"var(--m2)",fontFamily:"var(--mono)"}}>
-                          Target: {g.target_metric} = {g.target_value}
-                          {g.current_value ? " · Current: " + g.current_value : ""}
-                          {g.auto_completed ? " · Completed " + (g.completed_date || "") : ""}
-                        </div>
-                      )}
-                    </div>
-                    {!g.auto_completed && (
-                      <button className="gc-btn" onClick={()=>deleteGoal(g.id)}>✕</button>
-                    )}
-                  </div>
-                ))}
               </div>
             </div>
           )}
