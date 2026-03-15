@@ -1500,7 +1500,7 @@ function GoalsSection() {
         <div style={{fontSize:10,color:"var(--m)",marginTop:2}}>Add a goal — AI assesses it instantly</div>
       </div>
       <div className="goal-input-wrap">
-        <input className="goal-input" placeholder="e.g. Do 15 pull-ups by July"
+        <input className="goal-input" placeholder="e.g. Do 15 pull-ups · Lose 5kg body fat · Run 5km"
           value={input} onChange={e=>setInput(e.target.value)}
           onKeyDown={e=>e.key==="Enter"&&addGoal()} disabled={adding}/>
         <button className="btn bp bsm" onClick={addGoal} disabled={adding||!input.trim()}>
@@ -1519,8 +1519,8 @@ function GoalsSection() {
           </div>
           <div className="goal-date">{new Date(g.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>
           {g.ai_insight===null
-            ?<div style={{fontSize:11,color:"var(--m)",display:"flex",alignItems:"center",gap:5}}><Dots/> Analyzing…</div>
-            :<div className="goal-ai">{g.ai_insight}</div>}
+            ? <div style={{fontSize:11,color:"var(--m)",display:"flex",alignItems:"center",gap:5}}><Dots/> AI analyzing fitness plan…</div>
+            : <div className="goal-ai">{renderAI(g.ai_insight)}</div>}
         </div>
       ))}
     </div>
@@ -1615,8 +1615,6 @@ function NotesTab() {
         </button>
       </div>
 
-      {/* Process button disabled only if no notes at all */}
-      
       {/* AI context — show at top so user can see what AI knows */}
       {aiContext && (
         <div className="processed-note" style={{marginBottom:16}}>
@@ -1632,8 +1630,9 @@ function NotesTab() {
       {allNotes.length>0 ? (
         <div>
           <div style={{fontSize:9,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",
-            color:"var(--m)",marginBottom:8}}>
-            {allNotes.length} saved note{allNotes.length>1?"s":""}
+            color:"var(--m)",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <span>{allNotes.length} saved note{allNotes.length>1?"s":""}</span>
+            <span style={{fontSize:9,color:"var(--m)",fontWeight:400}}>Tap × to delete</span>
           </div>
           {allNotes.map(n=>(
             <div key={n.id} className="note-card">
