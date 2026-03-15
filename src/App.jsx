@@ -1178,6 +1178,8 @@ function TodayTab({ streak, weekPlan }) {
   );
 }
 
+function HomeTab({ streak, weekPlan }) { return <TodayTab streak={streak} weekPlan={weekPlan}/>; }
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // DAILY UPLOAD MODAL
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2769,11 +2771,11 @@ export default function App() {
           </div>
 
           <div className="tab-content">
-            {tab==="home"     && <HomeTab/>}
-            {tab==="fitness"  && <ModuleTab module="fitness"/>}
-            {tab==="notes"    && <NotesTab/>}
-            {tab==="hobbies"  && <HobbiesTab/>}
+            {tab==="home"     && <HomeTab streak={streak} weekPlan={weekPlan}/>}
+            {tab==="fitness"  && <FitnessTab/>}
             {tab==="skills"   && <SkillsTab/>}
+            {tab==="hobbies"  && <HobbiesTab/>}
+            {tab==="notes"    && <NotesTab/>}
             {tab==="settings" && <SettingsTab onReset={()=>setAuthed(false)} lightMode={lightMode} toggleLight={toggleLight}/>}
           </div>
         </div>
