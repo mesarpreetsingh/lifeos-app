@@ -873,81 +873,7 @@ function RecoveryRing({ score }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TODAY TAB
 // ═══════════════════════════════════════════════════════════════════════════════
-function SessionCompleteCard({ module, sessionName, date, weekStartDate, onDone }) {
-  const cfg = MODULE_CONFIG[module] || MODULE_CONFIG.fitness;
-  const [questions, setQuestions]   = useState(null);
-  const [answers, setAnswers]       = useState({});
-  const [loading, setLoading]       = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [result, setResult]         = useState(null);
-  const [err, setErr]               = useState(null);
-
-
-  useEffect(() => {
-    api("/module/session/questions", {method:"POST",
-      body: JSON.stringify({ module, session_name: sessionName, date })
-    }).then(r => { setQuestions(r.questions || []); setLoading(false); })
-    .catch(() => { setQuestions([]); setLoading(false); });
-  }, []);
-
-  const canSubmit = !questions || questions.every(q => !q.required || (answers[q.text]?.trim()));
-
-  const submit = async () => {
-    setSubmitting(true); setErr(null);
-    try {
-      const answersArr = (questions || []).map(q => ({
-        question: q.text,
-        answer: answers[q.text] || "",
-        required: q.required,
-      }));
-      const res = await api("/module/session/complete", {method:"POST",
-        body: JSON.stringify({
-          module, session_name: sessionName, date,
-          answers: answersArr, duration_minutes: 0,
-
-        })
-      });
-      setResult(res);
-      onDone(res);
-    } catch(e) { setErr(e.message); }
-    setSubmitting(false);
-  };
-
-  if (loading) return <div style={{padding:"10px 0",display:"flex",gap:8,alignItems:"center"}}><Dots/><span style={{fontSize:12,color:"var(--m)"}}>Generating session questions…</span></div>;
-
-  return (
-    <div style={{marginTop:10,padding:"12px 14px",background:cfg.bg,borderRadius:9,border:"1px solid "+cfg.border}}>
-
-      {questions.length === 0 ? (
-        <div style={{fontSize:12,color:"var(--m2)",marginBottom:8}}>How did the session feel? (optional)</div>
-      ) : (
-        questions.map((q,i) => (
-          <div key={i} style={{marginBottom:10}}>
-            <div style={{fontSize:11.5,color:"var(--t)",fontWeight:600,marginBottom:4,display:"flex",alignItems:"center",gap:6}}>
-              {q.text}
-              {q.required && <span style={{fontSize:9,padding:"1px 5px",borderRadius:3,background:"rgba(255,107,107,0.12)",color:"var(--warn)",fontWeight:700}}>REQUIRED</span>}
-            </div>
-            <input className="inp" value={answers[q.text]||""}
-              onChange={e=>setAnswers(a=>({...a,[q.text]:e.target.value}))}
-              placeholder={q.required ? "Required to track progress" : "Optional"}
-              style={{fontSize:12.5}}/>
-          </div>
-        ))
-      )}
-      <Err msg={err}/>
-      {!result && (
-        <button className="btn bp" onClick={submit} disabled={submitting||!canSubmit}
-          style={{width:"100%",marginTop:4}}>
-          {submitting ? <><Dots/> Saving…</> : "✅ Submit & Complete"}
-        </button>
-      )}
-      {result && (
-        <div style={{fontSize:12,color:cfg.color,fontWeight:600,textAlign:"center",padding:"4px 0"}}>✓ Session logged</div>
-      )}
-      {result?.observation && <AiBox label="Session insight" text={result.observation}/>}
-    </div>
-  );
-}
+// SessionCompleteCard removed — DayDetailModal handles all session completion
 
 function TodayTab({ streak, weekPlan }) {
   const today = todayStr();
@@ -1143,26 +1069,12 @@ function TodayTab({ streak, weekPlan }) {
         onDone={onAnalysisDone}/>}
 
       {completingTask && (
-        <div className="ov" onClick={e=>e.target===e.currentTarget&&setCompletingTask(null)}>
-          <div className="modal">
-            <div className="mh">
-              <div>
-                <div className="mt">{completingTask.label}</div>
-                <div className="ms">{completingTask.desc}</div>
-              </div>
-              <button className="mcl" onClick={()=>setCompletingTask(null)}>×</button>
-            </div>
-            <div className="mb">
-              <SessionCompleteCard
-                module={completingTask.module}
-                sessionName={completingTask.label}
-                date={today}
-                weekStartDate={ws}
-                onDone={(res)=>{ setCompletingTask(null); load(); }}
-              />
-            </div>
-          </div>
-        </div>
+        <DayDetailModal
+          day={completingTask.day}
+          weekStartDate={ws}
+          onClose={()=>setCompletingTask(null)}
+          onCompleted={()=>{ setCompletingTask(null); load(); }}
+        />
       )}
     </div>
   );
@@ -1229,46 +1141,63 @@ function DailyUploadModal({ today, todayPlan, onClose, onDone }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // DAY DETAIL MODAL
 // ═══════════════════════════════════════════════════════════════════════════════
-function DayDetailModal({ day, weekStartDate, onClose }) {
+function DayDetailModal({ day, weekStartDate, onClose, onCompleted }) {
+  const module = day.module || "fitness";
+  const cfg = MODULE_CONFIG[module] || MODULE_CONFIG.fitness;
   const dateLabel = day.date_label || (weekStartDate ? dayDateLabel(weekStartDate, day.day) : day.day);
   const actualDate = weekStartDate ? dayDate(weekStartDate, day.day).toISOString().slice(0,10) : todayStr();
   const isToday = actualDate === todayStr();
   const isPast  = actualDate < todayStr();
 
-  const [note, setNote]               = useState("");
-  const [completing, setCompleting]   = useState(false);
-  const [completed, setCompleted]     = useState(false);
-  const [noteResult, setNoteResult]   = useState(null);
-  const [err, setErr]                 = useState(null);
+  const [answer, setAnswer]         = useState("");
+  const [completing, setCompleting] = useState(false);
+  const [completed, setCompleted]   = useState(false);
+  const [observation, setObservation] = useState(null);
+  const [err, setErr]               = useState(null);
 
   useEffect(()=>{
+    // Check if already completed today
     api(`/data/day/${actualDate}`).then(d=>{
-      if(d.workout_completed) setCompleted(true);
-      if(d.workout_note) setNote(d.workout_note);
-      if(d.note_analysis) setNoteResult(d.note_analysis);
+      if (module === "fitness" && d.workout_completed) setCompleted(true);
     }).catch(()=>{});
-  },[actualDate]);
+  },[actualDate, module]);
 
+  // Parse fitness workout into WARM UP / MAIN WORK / COOL DOWN sections
   const parseWorkout = text => {
-    if(!text)return[];
-    const sections=[];let cur=null;
+    if(!text) return [];
+    const sections=[]; let cur=null;
     text.split("\n").map(l=>l.trim()).filter(Boolean).forEach(l=>{
-      if(l.match(/^(WARM.?UP|MAIN WORK|COOL.?DOWN)/i)){cur={title:l.replace(/:$/,""),items:[]};sections.push(cur);}
-      else if(l.startsWith("-")&&cur) cur.items.push(l.slice(1).trim());
+      if(l.match(/^(WARM.?UP|MAIN WORK|COOL.?DOWN)/i)){
+        cur={title:l.replace(/:$/,""),items:[]};sections.push(cur);
+      } else if(l.startsWith("-")&&cur) cur.items.push(l.slice(1).trim());
       else if(cur&&l) cur.items.push(l);
     });
     return sections;
   };
 
-  const sections = parseWorkout(day.session_detail||"");
+  const isFitness = module === "fitness";
+  const sections = isFitness ? parseWorkout(day.session_detail||"") : [];
+  const sessionFocus = !isFitness ? (day.session_detail || "") : "";
+  const question = day.check_in_question || "";
 
   const handleComplete = async () => {
-    setCompleting(true);setErr(null);
+    setCompleting(true); setErr(null);
     try {
-      const res=await api("/workout/complete",{method:"POST",body:JSON.stringify({date:actualDate,note:note.trim()})});
-      setNoteResult(res.note_analysis);setCompleted(true);
-      if(res.streak_message) alert("🔥 "+res.streak_message);
-    }catch(e){setErr(e.message);}
+      const res = await api("/module/session/complete", {
+        method:"POST",
+        body: JSON.stringify({
+          module,
+          session_name: day.session_name,
+          date: actualDate,
+          check_in_question: question || null,
+          answer: answer.trim() || null,
+          session_detail: day.session_detail || "",
+        })
+      });
+      setObservation(res.observation);
+      setCompleted(true);
+      if (onCompleted) onCompleted();
+    } catch(e) { setErr(e.message); }
     setCompleting(false);
   };
 
@@ -1277,60 +1206,94 @@ function DayDetailModal({ day, weekStartDate, onClose }) {
       <div className="modal">
         <div className="mh">
           <div>
-            <div className="mt">{day.session_name||"Workout"}</div>
-            <div className="ms">{dateLabel}{day.time_window?" · "+day.time_window:""}{isToday?" · Today":""}{completed?" · ✓ Done":""}</div>
+            <div className="mt">{day.session_name || cfg.label + " Session"}</div>
+            <div className="ms" style={{color:cfg.color}}>
+              {dateLabel}{day.time_window?" · "+day.time_window:""}{isToday?" · Today":""}{completed?" · ✓ Done":""}
+            </div>
           </div>
           <button className="mcl" onClick={onClose}>×</button>
         </div>
         <div className="mb">
-          {day.ai_note&&(
+
+          {/* AI scheduling note */}
+          {day.ai_note && (
             <div style={{fontSize:12,color:"var(--m2)",background:"var(--bg3)",borderRadius:9,
-              padding:"9px 12px",marginBottom:13,borderLeft:"2px solid var(--a)",lineHeight:1.65}}>
+              padding:"9px 12px",marginBottom:13,borderLeft:"2px solid "+cfg.border,lineHeight:1.65}}>
               {day.ai_note}
             </div>
           )}
-          {sections.length>0?sections.map((sec,i)=>(
+
+          {/* FITNESS: show WARM UP / MAIN WORK / COOL DOWN */}
+          {isFitness && sections.length > 0 && sections.map((sec,i) => (
             <div key={i} className="ex-section">
               <div className="ex-section-title">{sec.title}</div>
-              {sec.items.map((item,j)=>{
-                const sets=item.match(/(\d+)\s*x\s*(\d+)/);
-                const parts=item.split("—");
+              {sec.items.map((item,j) => {
+                const sets = item.match(/(\d+)\s*x\s*(\d+)/);
+                const parts = item.split("—");
                 return (
                   <div key={j} className="exr">
                     <span className="exn">{parts[0].trim()}</span>
-                    {sets&&<span className="exrp">{sets[0]}</span>}
-                    {parts[1]&&<span className="exnote">{parts[1].trim()}</span>}
+                    {sets && <span className="exrp">{sets[0]}</span>}
+                    {parts[1] && <span className="exnote">{parts[1].trim()}</span>}
                   </div>
                 );
               })}
             </div>
-          )):(
-            <div className="empty-state">No workout details for this day.</div>
+          ))}
+          {isFitness && sections.length === 0 && !day.is_rest && (
+            <div className="empty-state">No workout details yet — re-upload your schedule to regenerate.</div>
           )}
 
-          {!completed&&(isToday||isPast)&&(
-            <div style={{marginTop:13}}>
-              <div style={{fontSize:10,fontWeight:700,color:"var(--m)",letterSpacing:"1.5px",
-                textTransform:"uppercase",marginBottom:6}}>Post-workout note</div>
-              <input className="inp" placeholder="How did it feel?"
-                value={note} onChange={e=>setNote(e.target.value)}
+          {/* SKILLS / HOBBIES: show session focus */}
+          {!isFitness && sessionFocus && (
+            <div style={{background:cfg.bg,border:"1px solid "+cfg.border,borderRadius:10,
+              padding:"12px 14px",marginBottom:13}}>
+              <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",
+                color:cfg.color,marginBottom:6}}>This Session</div>
+              <div style={{fontSize:13,lineHeight:1.7,color:"var(--t)",whiteSpace:"pre-wrap"}}>{sessionFocus}</div>
+            </div>
+          )}
+          {!isFitness && !sessionFocus && (
+            <div className="empty-state">No session details — re-upload your schedule after adding notes.</div>
+          )}
+
+          {/* CHECK-IN QUESTION — shown for all modules if not yet completed */}
+          {!completed && (isToday || isPast) && question && (
+            <div style={{marginTop:14}}>
+              <div style={{fontSize:11,fontWeight:700,color:cfg.color,letterSpacing:"1px",
+                textTransform:"uppercase",marginBottom:6}}>Check-In</div>
+              <div style={{fontSize:13,color:"var(--t)",fontWeight:500,marginBottom:8,lineHeight:1.6}}>
+                {question}
+              </div>
+              <input className="inp" placeholder="Your answer…"
+                value={answer} onChange={e=>setAnswer(e.target.value)}
                 onKeyDown={e=>e.key==="Enter"&&handleComplete()}/>
             </div>
           )}
-          {!completed&&!isToday&&!isPast&&(
+
+          {/* Future session */}
+          {!completed && !isToday && !isPast && (
             <div className="empty-state">Future session — come back on {dateLabel.split(",")[0]}.</div>
           )}
-          {noteResult&&<AiBox label="Post-Workout Insight — saved" text={noteResult}/>}
+
+          {/* AI observation after completion */}
+          {observation && <AiBox label="Session Insight — saved" text={observation}/>}
+
           <Err msg={err}/>
         </div>
         <div className="mf">
           <button className="btn bs" onClick={onClose}>Close</button>
-          {!completed&&(isToday||isPast)&&(
-            <button className="btn bp" onClick={handleComplete} disabled={completing}>
-              {completing?<><Dots/> Saving…</>:"✅ Mark Complete"}
+          {!completed && (isToday || isPast) && (
+            <button className="btn bp" style={{background:cfg.color==="var(--a)"?"linear-gradient(135deg,var(--a),#3DDFAA)":cfg.color}}
+              onClick={handleComplete} disabled={completing}>
+              {completing ? <><Dots/> Saving…</> : "✅ Mark Complete"}
             </button>
           )}
-          {completed&&<div style={{flex:1,textAlign:"center",color:"var(--a)",fontSize:13,fontWeight:700,padding:"10px 0"}}>✓ Completed</div>}
+          {completed && (
+            <div style={{flex:1,textAlign:"center",color:cfg.color,fontSize:13,fontWeight:700,padding:"10px 0"}}>
+              ✓ Session Logged
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1604,8 +1567,8 @@ function NotesTab() {
     try {
       const res = await api("/notes/process", {method:"POST", body:JSON.stringify({note_id:note.id})});
       if (res.notes?.length) {
-        const updated = res.notes[0];
-        setNotes(prev => prev.map(n => n.id===note.id ? {...n, module:updated.module, context:updated.context, processed:1} : n));
+        const updated = { ...res.notes[0] };
+        setNotes(prev => prev.map(n => n.id===note.id ? {...n, module:updated.module, category:updated.category, context:updated.context, processed:1} : n));
       }
       if (res.contexts?.length) {
         setContexts(prev => {
@@ -1647,7 +1610,7 @@ function NotesTab() {
       <div style={{marginBottom:12}}>
         <div style={{fontSize:13,fontWeight:700}}>Notes</div>
         <div style={{fontSize:10,color:"var(--m)",marginTop:2,lineHeight:1.55}}>
-          Add anything — commute times, injuries, goals, preferences. AI auto-categorizes each note and feeds it to the right module.
+          Write anything. AI categorizes into: General Info · Fitness Goal · Skill Goal · Hobby Goal — and feeds each to the right planner when you upload your schedule.
         </div>
       </div>
 
@@ -1704,11 +1667,11 @@ function NotesTab() {
               <div key={n.id} className="note-card" style={{marginBottom:8}}>
                 {/* Header row */}
                 <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6}}>
-                  {n.module && n.processed ? (
+                  {n.processed ? (
                     <span style={{fontSize:8,fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",
                       padding:"2px 7px",borderRadius:4,background:c.bg,
                       border:"1px solid "+c.border,color:c.color}}>
-                      {n.module}
+                      {n.category || n.module || "general info"}
                     </span>
                   ) : (
                     <span style={{fontSize:8,color:"var(--warn)",fontWeight:700,letterSpacing:"1px",
@@ -1720,14 +1683,12 @@ function NotesTab() {
                   <span style={{fontSize:9,color:"var(--m)",fontFamily:"var(--mono)",marginLeft:"auto"}}>
                     {new Date(n.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"})}
                   </span>
-                  {/* Edit button */}
                   <button className="gc-btn" style={{fontSize:12}}
                     onClick={()=>{ setEditId(n.id); setEditText(n.content); }}>✏</button>
-                  {/* Delete */}
                   <button className="gc-btn" onClick={()=>deleteNote(n.id)}>✕</button>
                 </div>
 
-                {/* Content or edit textarea */}
+                {/* Show refined note if processed, raw content if editing or unprocessed */}
                 {isEditing ? (
                   <div>
                     <textarea className="ta" value={editText} onChange={e=>setEditText(e.target.value)}
@@ -1737,18 +1698,13 @@ function NotesTab() {
                       <button className="btn bp bsm" onClick={saveEdit}>Save</button>
                     </div>
                   </div>
-                ) : (
-                  <div style={{fontSize:13,lineHeight:1.65,color:"var(--t)",whiteSpace:"pre-wrap",marginBottom:n.context?8:0}}>
-                    {n.content}
-                  </div>
-                )}
-
-                {/* AI context for this note */}
-                {n.context && !isEditing && (
-                  <div style={{fontSize:11.5,color:"var(--m2)",lineHeight:1.6,
-                    background:"var(--bg3)",borderRadius:7,padding:"6px 9px",
-                    borderLeft:"2px solid "+c.border}}>
+                ) : n.processed && n.context ? (
+                  <div style={{fontSize:13,lineHeight:1.65,color:"var(--t)",whiteSpace:"pre-wrap"}}>
                     {n.context}
+                  </div>
+                ) : (
+                  <div style={{fontSize:13,lineHeight:1.65,color:"var(--t)",whiteSpace:"pre-wrap"}}>
+                    {n.content}
                   </div>
                 )}
 
@@ -2386,8 +2342,19 @@ function ModuleTab({ module }) {
               {!loading && allWeeks.length === 0 && (
                 <div className="empty-state">
                   <div style={{fontSize:28,marginBottom:8}}>{cfg.icon}</div>
-                  No {cfg.label.toLowerCase()} schedule yet.<br/>
-                  <span style={{fontSize:11}}>Upload your fitness schedule in Settings — all 3 modules generate automatically.</span>
+                  <div style={{fontWeight:700,marginBottom:6}}>No {cfg.label} schedule yet</div>
+                  {module === "fitness" ? (
+                    <span style={{fontSize:11,lineHeight:1.7}}>
+                      Upload your weekly schedule in Settings.<br/>
+                      Add Fitness Goal notes in the Notes tab first — the AI plans around them.
+                    </span>
+                  ) : (
+                    <span style={{fontSize:11,lineHeight:1.7}}>
+                      Add <b>{module === "skills" ? "Skill Goal" : "Hobby Goal"}</b> notes in the Notes tab first.<br/>
+                      When you upload your schedule in Settings,<br/>
+                      this module generates automatically based on your notes.
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -2491,28 +2458,14 @@ function ModuleTab({ module }) {
           onClose={()=>setSelectedDay(null)}/>
       )}
 
-      {/* Session complete card shown as modal */}
+      {/* DayDetailModal handles session completion for all modules */}
       {completing && (
-        <div className="ov" onClick={e=>e.target===e.currentTarget&&setCompleting(null)}>
-          <div className="modal">
-            <div className="mh">
-              <div>
-                <div className="mt">{completing.session_name || "Complete Session"}</div>
-                <div className="ms">{completing.day} · {completing.time_window || ""}</div>
-              </div>
-              <button className="mcl" onClick={()=>setCompleting(null)}>×</button>
-            </div>
-            <div className="mb">
-              <SessionCompleteCard
-                module={module}
-                sessionName={completing.session_name || "Session"}
-                date={viewWeek ? dayDate(viewWeek, completing.day).toISOString().slice(0,10) : todayStr()}
-                weekStartDate={viewWeek}
-                onDone={(res)=>{setCompleting(null); loadStats();}}
-              />
-            </div>
-          </div>
-        </div>
+        <DayDetailModal
+          day={completing}
+          weekStartDate={viewWeek || ws}
+          onClose={()=>setCompleting(null)}
+          onCompleted={()=>{ setCompleting(null); load(); loadStats(); }}
+        />
       )}
 
       {compOpen && (
