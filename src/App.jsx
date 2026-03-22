@@ -894,10 +894,20 @@ function TodayTab({ streak, weekPlan }) {
   const [lifeScore, setLifeScore]   = useState(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [expandedTask, setExpandedTask] = useState(null); // task id expanded
-  const [completingTask, setCompletingTask] = useState(null); // session completing
+  const [completingTask, setCompletingTask] = useState(null);
+  const [nextWeekPlan, setNextWeekPlan]     = useState(undefined); // undefined=loading, null=none
+  const [bodyCompThisWeek, setBodyCompThisWeek] = useState(null);
 
   const ws = weekStart(today);
+  // Next week start = ws + 7 days
+  const nextWs = (() => {
+    const d = new Date(ws + "T12:00:00");
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0,10);
+  })();
   const todayDayAbbr = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][new Date().getDay()];
+  const freeDayNum = parseInt(localStorage.getItem("lifeos_free_day") || "0");
+  const isFreeDay = new Date().getDay() === freeDayNum;
 
   const load = useCallback(async () => {
     try {
@@ -912,6 +922,16 @@ function TodayTab({ streak, weekPlan }) {
     } catch { setDayData(null); }
     setLoading(false);
   }, [today, ws]);
+
+  // Check next week plan + body comp (for reminders) — runs independently
+  useEffect(() => {
+    api("/data/week/" + nextWs)
+      .then(d => setNextWeekPlan(d?.fitness?.days?.length > 0 ? d : null))
+      .catch(() => setNextWeekPlan(null));
+    api("/data/body-comp-latest")
+      .then(d => setBodyCompThisWeek(d?.week_start || null))
+      .catch(() => setBodyCompThisWeek(null));
+  }, [nextWs]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -974,8 +994,64 @@ function TodayTab({ streak, weekPlan }) {
     <div className="cnt" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:200}}><Dots/></div>
   );
 
+  // Reminder banners — only show on free day OR if schedule is critically missing
+  const needsSchedule = nextWeekPlan === null; // null = loaded but no plan
+  const daysSinceBodyComp = bodyCompThisWeek
+    ? Math.floor((new Date(today) - new Date(bodyCompThisWeek + "T12:00:00")) / 86400000)
+    : 99;
+  const needsBodyComp = daysSinceBodyComp >= 7;
+  const showReminders = isFreeDay || needsSchedule; // always show if schedule missing
+
   return (
     <div className="cnt">
+
+      {/* Reminder banners */}
+      {showReminders && needsSchedule && (
+        <div style={{
+          background:"linear-gradient(135deg,var(--fitness-bg),var(--bg2))",
+          border:"1px solid var(--fitness-border)",
+          borderRadius:10, padding:"12px 14px", marginBottom:10,
+          display:"flex", alignItems:"center", gap:12,
+          animation:"fadeup .3s ease"
+        }}>
+          <div style={{fontSize:22,flexShrink:0}}>📅</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12,fontWeight:700,color:"var(--fitness-color)",marginBottom:2}}>
+              Next week has no schedule yet
+            </div>
+            <div style={{fontSize:11,color:"var(--m)",lineHeight:1.55}}>
+              Upload your schedule in Settings — all 3 modules generate automatically.
+            </div>
+          </div>
+          <button className="btn bp bsm"
+            style={{flexShrink:0,background:"var(--fitness-color)",fontSize:11}}
+            onClick={()=>{ /* open settings tab via a custom event */ window.dispatchEvent(new CustomEvent("lifeos:gotab",{detail:"settings"})); }}>
+            Upload
+          </button>
+        </div>
+      )}
+
+      {showReminders && needsBodyComp && (
+        <div style={{
+          background:"linear-gradient(135deg,var(--skills-bg),var(--bg2))",
+          border:"1px solid var(--skills-border)",
+          borderRadius:10, padding:"12px 14px", marginBottom:10,
+          display:"flex", alignItems:"center", gap:12,
+          animation:"fadeup .3s ease"
+        }}>
+          <div style={{fontSize:22,flexShrink:0}}>📐</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12,fontWeight:700,color:"var(--skills-color)",marginBottom:2}}>
+              Body composition not logged this week
+            </div>
+            <div style={{fontSize:11,color:"var(--m)",lineHeight:1.55}}>
+              {daysSinceBodyComp < 99
+                ? `Last logged ${daysSinceBodyComp} day${daysSinceBodyComp!==1?"s":""} ago. Open Fitness → Progress to log today's.`
+                : "Never logged. Upload a Samsung Health body comp screenshot to start tracking."}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Life Score */}
       {lifeScore !== null && (
@@ -1894,8 +1970,26 @@ function SettingsTab({ onReset, lightMode, toggleLight }) {
             defaultValue={localStorage.getItem("lifeos_week_start_day")||"0"}
             onChange={e=>{
               localStorage.setItem("lifeos_week_start_day", e.target.value);
-              window.location.reload(); // reload so all week calculations update
+              window.location.reload();
             }}>
+            <option value="0">Sunday</option>
+            <option value="1">Monday</option>
+            <option value="2">Tuesday</option>
+            <option value="3">Wednesday</option>
+            <option value="4">Thursday</option>
+            <option value="5">Friday</option>
+            <option value="6">Saturday</option>
+          </select>
+        </div>
+
+        <div className="setting-row">
+          <div className="sr-left">
+            <div className="sr-label">My Free Day</div>
+            <div className="sr-desc">Reminders to upload next week's schedule and body comp appear on this day</div>
+          </div>
+          <select className="sel" style={{width:110}}
+            defaultValue={localStorage.getItem("lifeos_free_day")||"0"}
+            onChange={e=>localStorage.setItem("lifeos_free_day", e.target.value)}>
             <option value="0">Sunday</option>
             <option value="1">Monday</option>
             <option value="2">Tuesday</option>
@@ -2810,9 +2904,6 @@ function HistoryTab() {
 // ═══════════════════════════════════════════════════════════════════════════════
 const NAV = [
   { id:"home",     icon:"🏠", label:"Home",    built:true },
-  { id:"fitness",  icon:"🏋️", label:"Fitness", built:true },
-  { id:"skills",   icon:"📚", label:"Skills",  built:true },
-  { id:"hobbies",  icon:"🎨", label:"Hobbies", built:true },
   { id:"notes",    icon:"📝", label:"Notes",   built:true },
   { id:"history",  icon:"📊", label:"History", built:true },
   { id:"settings", icon:"⚙️", label:"Settings",built:true },
@@ -2894,11 +2985,18 @@ export default function App() {
     api(`/data/week/${ws}`).then(d=>setWeekPlan(d)).catch(()=>{});
   },[authed]);
 
+  // Listen for tab-navigation events from reminder banners
+  useEffect(()=>{
+    const handler = (e) => setTab(e.detail);
+    window.addEventListener("lifeos:gotab", handler);
+    return () => window.removeEventListener("lifeos:gotab", handler);
+  },[]);
+
   if(!authed) return <LoginScreen onLogin={()=>setAuthed(true)}/>;
 
   const todayLabel=new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
-  const TITLES={home:["My ","Home"],fitness:["Fit","ness"],notes:["My ","Notes"],
-    hobbies:["Hob","bies"],skills:["My ","Skills"],settings:["Set","tings"]};
+  const TITLES={home:["My ","Home"],notes:["My ","Notes"],
+    history:["My ","History"],settings:["Set","tings"]};
 
   return (
     <>
@@ -2948,10 +3046,7 @@ export default function App() {
 
           <div className="tab-content">
             {tab==="home"     && <HomeTab streak={streak} weekPlan={weekPlan}/>}
-            {tab==="fitness"  && <FitnessTab/>}
-            {tab==="skills"   && <SkillsTab/>}
             {tab==="history"  && <HistoryTab/>}
-            {tab==="hobbies"  && <HobbiesTab/>}
             {tab==="notes"    && <NotesTab/>}
             {tab==="settings" && <SettingsTab onReset={()=>setAuthed(false)} lightMode={lightMode} toggleLight={toggleLight}/>}
           </div>
