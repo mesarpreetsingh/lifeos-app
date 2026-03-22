@@ -1046,10 +1046,15 @@ function TodayTab({ streak, weekPlan }) {
             </div>
             <div style={{fontSize:11,color:"var(--m)",lineHeight:1.55}}>
               {daysSinceBodyComp < 99
-                ? `Last logged ${daysSinceBodyComp} day${daysSinceBodyComp!==1?"s":""} ago. Open Fitness → Progress to log today's.`
+                ? `Last logged ${daysSinceBodyComp} day${daysSinceBodyComp!==1?"s":""} ago. Go to Settings → Tracking to upload today's.`
                 : "Never logged. Upload a Samsung Health body comp screenshot to start tracking."}
             </div>
           </div>
+          <button className="btn bs bsm"
+            style={{flexShrink:0,fontSize:11}}
+            onClick={()=>window.dispatchEvent(new CustomEvent("lifeos:gotab",{detail:"settings"}))}>
+            Log
+          </button>
         </div>
       )}
 
@@ -1164,6 +1169,34 @@ function TodayTab({ streak, weekPlan }) {
       })}
 
       {dayData?.combined_analysis && <AiBox label="Day Observation" text={dayData.combined_analysis}/>}
+
+      {/* This Week — mini blueprint for all 3 modules */}
+      {["fitness","skills","hobbies"].some(m => weekPlan?.[m]?.days?.length > 0) && (
+        <div style={{marginTop:18}}>
+          <div style={{fontSize:9,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",
+            color:"var(--m)",marginBottom:10}}>This Week</div>
+          {["fitness","skills","hobbies"].map(mod => {
+            const plan = weekPlan?.[mod];
+            if (!plan?.days?.length) return null;
+            const cfg = MODULE_CONFIG[mod];
+            return (
+              <div key={mod} style={{marginBottom:14}}>
+                <div style={{fontSize:11,fontWeight:700,color:cfg.color,
+                  letterSpacing:"0.5px",marginBottom:6,display:"flex",
+                  alignItems:"center",gap:6}}>
+                  {cfg.icon} {cfg.label}
+                </div>
+                <WeekScheduleViewById weekStart={ws} currentWeekStart={ws}
+                  module={mod}
+                  onComplete={(day)=>{
+                    setExpandedTask(null);
+                    setCompletingTask({day, module:mod, label:day.session_name, desc:day.time_window});
+                  }}/>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {uploadOpen && <DailyUploadModal today={today}
         todayPlan={weekPlan?.fitness?.days?.find(d=>d.day?.slice(0,3)===todayDayAbbr)}
@@ -1872,6 +1905,9 @@ function NotesTab() {
 function SettingsTab({ onReset, lightMode, toggleLight }) {
   const [schedOpen, setSchedOpen]     = useState(false);
   const [resetOpen, setResetOpen]     = useState(false);
+  const [compOpen, setCompOpen]       = useState(false);
+  const [compResult, setCompResult]   = useState(null);
+  const [weekViewMod, setWeekViewMod] = useState(null); // which module's week view is open
   const [bodyweightOnly, setBodyweightOnly] = useState(
     localStorage.getItem("lifeos_bodyweight") !== "false"
   );
@@ -2001,6 +2037,49 @@ function SettingsTab({ onReset, lightMode, toggleLight }) {
         </div>
       </div>
 
+      {/* Tracking */}
+      <div className="settings-section">
+        <div className="settings-title">Tracking</div>
+
+        {/* Body Comp upload */}
+        <div className="setting-row" style={{cursor:"pointer"}} onClick={()=>setCompOpen(true)}>
+          <div className="sr-left">
+            <div className="sr-label">📐 Upload Body Composition</div>
+            <div className="sr-desc">Samsung Health screenshot — AI tracks your metrics week over week</div>
+          </div>
+          <span style={{color:"var(--a)",fontSize:15}}>›</span>
+        </div>
+
+        {compResult && (
+          <div style={{margin:"8px 0 4px"}}>
+            <AiBox label="Body Composition Analysis" text={compResult}/>
+          </div>
+        )}
+
+        {/* Week schedule views per module */}
+        {["fitness","skills","hobbies"].map(mod => {
+          const cfg = MODULE_CONFIG[mod];
+          return (
+            <div key={mod} className="setting-row" style={{cursor:"pointer"}}
+              onClick={()=>setWeekViewMod(weekViewMod===mod ? null : mod)}>
+              <div className="sr-left">
+                <div className="sr-label">{cfg.icon} {cfg.label} — This Week</div>
+                <div className="sr-desc">View blueprint, complete sessions, generate weekly review</div>
+              </div>
+              <span style={{color:cfg.color,fontSize:15,transition:"transform .2s",
+                display:"inline-block",transform:weekViewMod===mod?"rotate(90deg)":"none"}}>›</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Expanded module week view */}
+      {weekViewMod && (
+        <div style={{marginBottom:16}}>
+          <ModuleTab module={weekViewMod}/>
+        </div>
+      )}
+
       {/* App Settings */}
       <div className="settings-section">
         <div className="settings-title">App Settings</div>
@@ -2079,6 +2158,10 @@ function SettingsTab({ onReset, lightMode, toggleLight }) {
 
       {schedOpen&&(
         <ScheduleUploadModal weekStartDate={ws} onClose={()=>setSchedOpen(false)}/>
+      )}
+      {compOpen&&(
+        <BodyCompModal weekStartDate={ws} onClose={()=>setCompOpen(false)}
+          onDone={r=>{setCompResult(r);setCompOpen(false);}}/>
       )}
       {resetOpen&&(
         <ResetModal onClose={()=>setResetOpen(false)} onReset={()=>{ setResetOpen(false); onReset(); }}/>
