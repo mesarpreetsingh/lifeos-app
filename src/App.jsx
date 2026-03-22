@@ -99,140 +99,151 @@ const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#060610;--bg2:#0D0D1F;--bg3:#13132A;--bg4:#1A1A35;
-  --b:rgba(255,255,255,0.06);--b2:rgba(255,255,255,0.12);
-  --a:#5CFFB0;--a2:#5C9EFF;--warn:#FF6B6B;--gold:#FFD166;--purple:#B06BFF;
-  --t:#EEEEFF;--m:#44446A;--m2:#8888BB;
+  /* ── Dark theme (default) — Slate/Violet ── */
+  --bg:#020617;--bg2:#0F172A;--bg3:#1E293B;--bg4:#334155;
+  --b:#1E293B;--b2:#334155;
+  /* Brand: violet */
+  --a:#8B5CF6;--a2:#A78BFA;
+  /* Module accents (dark) */
+  --fitness-color:#A78BFA;--fitness-bg:rgba(167,139,250,0.08);--fitness-border:#5B21B6;
+  --skills-color:#34D399;--skills-bg:rgba(52,211,153,0.08);--skills-border:#065F46;
+  --hobbies-color:#FBBF24;--hobbies-bg:rgba(251,191,36,0.08);--hobbies-border:#92400E;
+  /* Text */
+  --t:#F1F5F9;--m:#94A3B8;--m2:#64748B;
+  /* Status */
+  --warn:#F87171;--gold:#FBBF24;--purple:#A78BFA;
+  /* Misc */
   --font:'Syne',sans-serif;--mono:'DM Mono',monospace;
-  --glow:0 0 20px rgba(92,255,176,0.15);
-  --glow2:0 0 20px rgba(92,158,255,0.15);
+  --glow:0 0 20px rgba(139,92,246,0.18);
+  --glow2:0 0 20px rgba(167,139,250,0.14);
   --sb:220px;--mob-nav:62px;--mob-header:54px;
   --r:12px;
 }
-/* ── LIGHT MODE — Option D: Soft Blue ── */
+/* ── LIGHT MODE — Violet/Slate ── */
 .light-mode{
-  --bg:#EEF4FF;
+  --bg:#FDFBFD;
   --bg2:#FFFFFF;
-  --bg3:#E0ECFF;
-  --bg4:#C8DAFF;
-  --b:rgba(0,60,180,0.1);
-  --b2:rgba(0,60,180,0.22);
-  --a:#0044CC;
-  --a2:#002F99;
-  --warn:#BB1100;
-  --gold:#7A5000;
-  --purple:#5500BB;
-  --t:#06102A;
-  --m:#2A3F6A;
-  --m2:#1A2D55;
-  --glow:0 0 16px rgba(0,60,180,0.12);
-  --glow2:0 0 16px rgba(0,40,140,0.12);
+  --bg3:#F8FAFC;
+  --bg4:#F1F5F9;
+  --b:#F1F5F9;
+  --b2:#E2E8F0;
+  /* Brand: violet-600 */
+  --a:#7C3AED;--a2:#6D28D9;
+  /* Module accents (light) */
+  --fitness-color:#8B5CF6;--fitness-bg:rgba(139,92,246,0.06);--fitness-border:#DDD6FE;
+  --skills-color:#10B981;--skills-bg:rgba(16,185,129,0.06);--skills-border:#A7F3D0;
+  --hobbies-color:#F59E0B;--hobbies-bg:rgba(245,158,11,0.07);--hobbies-border:#FDE68A;
+  /* Text */
+  --t:#1E293B;--m:#64748B;--m2:#94A3B8;
+  /* Status */
+  --warn:#DC2626;--gold:#D97706;--purple:#7C3AED;
+  --glow:0 0 16px rgba(124,58,237,0.1);
+  --glow2:0 0 16px rgba(109,40,217,0.08);
 }
-/* Cards get a subtle blue-tinted white */
-.light-mode .card{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
+.light-mode .card{background:#FFFFFF;border-color:#F1F5F9;}
 .light-mode .bg2,.light-mode .sb,.light-mode .mob-header{background:#FFFFFF;}
 /* Tasks */
-.light-mode .ti{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
-.light-mode .ti::before{background:linear-gradient(135deg,rgba(0,60,180,0.03),transparent);}
-.light-mode .ti:hover{border-color:rgba(0,60,180,0.2);}
-.light-mode .tbdg.p{background:rgba(0,60,180,0.08);color:#2A3F6A;}
-.light-mode .tbdg.d{background:rgba(0,80,200,0.1);color:#0044BB;}
+.light-mode .ti{background:#FFFFFF;border-color:#F1F5F9;}
+.light-mode .ti::before{background:linear-gradient(135deg,rgba(124,58,237,0.02),transparent);}
+.light-mode .ti:hover{border-color:#E2E8F0;background:#F8FAFC;}
+.light-mode .tbdg.p{background:rgba(124,58,237,0.07);color:#6D28D9;}
+.light-mode .tbdg.d{background:rgba(16,185,129,0.08);color:#059669;}
 /* Blueprint rows */
-.light-mode .bpr{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
-.light-mode .bpr:hover{background:#F4F8FF;border-color:rgba(0,60,180,0.2);}
-.light-mode .bpr.today{background:#F0F6FF;border-color:rgba(0,80,200,0.3);box-shadow:0 0 14px rgba(0,60,180,0.08);}
+.light-mode .bpr{background:#FFFFFF;border-color:#F1F5F9;}
+.light-mode .bpr:hover{background:#F8FAFC;border-color:#E2E8F0;}
+.light-mode .bpr.today{background:#FAF5FF;border-color:#DDD6FE;box-shadow:0 0 14px rgba(124,58,237,0.07);}
 /* AI boxes */
-.light-mode .aib{background:#EAF2FF;border-color:rgba(0,80,200,0.18);}
-.light-mode .aib-t{color:#0044BB;}
-.light-mode .aib p{color:#2A3F70;}
+.light-mode .aib{background:#FAF5FF;border-color:#DDD6FE;}
+.light-mode .aib-t{color:#6D28D9;}
+.light-mode .aib p{color:#374151;}
 /* Streak */
-.light-mode .streak-banner{background:linear-gradient(135deg,rgba(0,60,180,0.07),rgba(0,40,140,0.04));border-color:rgba(0,80,200,0.2);}
-.light-mode .streak-count{background:linear-gradient(135deg,#0055DD,#0033AA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.light-mode .streak-sb{background:#E8F0FF;border-color:rgba(0,80,200,0.15);}
-.light-mode .streak-num{color:#0055DD;}
+.light-mode .streak-banner{background:linear-gradient(135deg,rgba(124,58,237,0.05),rgba(109,40,217,0.03));border-color:#DDD6FE;}
+.light-mode .streak-count{background:linear-gradient(135deg,#7C3AED,#6D28D9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.light-mode .streak-sb{background:#FAF5FF;border-color:#DDD6FE;}
+.light-mode .streak-num{color:#7C3AED;}
 /* Recovery ring */
-.light-mode .rc-wrap{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
+.light-mode .rc-wrap{background:#FFFFFF;border-color:#F1F5F9;}
 /* Notes */
-.light-mode .processed-note{background:#EAF2FF;border-color:rgba(0,80,200,0.15);}
-.light-mode .pn-meta{color:#0044BB;}
-.light-mode .pn-body{color:#2A3F70;}
-.light-mode .note-card{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
+.light-mode .processed-note{background:#FAF5FF;border-color:#DDD6FE;}
+.light-mode .pn-meta{color:#6D28D9;}
+.light-mode .pn-body{color:#374151;}
+.light-mode .note-card{background:#FFFFFF;border-color:#F1F5F9;}
 /* Goals */
-.light-mode .goal-card{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
-.light-mode .goal-ai{background:#F0F6FF;color:#2A3F70;}
-.light-mode .goal-input{background:#FFFFFF;border-color:rgba(0,60,180,0.12);}
+.light-mode .goal-card{background:#FFFFFF;border-color:#F1F5F9;}
+.light-mode .goal-ai{background:#FAF5FF;color:#374151;}
+.light-mode .goal-input{background:#FFFFFF;border-color:#E2E8F0;}
 /* Settings */
-.light-mode .setting-row{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
-.light-mode .danger-zone{background:rgba(200,0,0,0.03);border-color:rgba(200,0,0,0.12);}
+.light-mode .setting-row{background:#FFFFFF;border-color:#F1F5F9;}
+.light-mode .danger-zone{background:rgba(220,38,38,0.03);border-color:rgba(220,38,38,0.1);}
 /* Workout detail */
-.light-mode .exr{background:#F0F6FF;}
-.light-mode .exr:hover{background:#E4EFFF;}
-.light-mode .exrp{background:rgba(0,80,200,0.1);color:#0044BB;}
-.light-mode .ex-section-title{color:#4060A0;}
+.light-mode .exr{background:#FAF5FF;}
+.light-mode .exr:hover{background:#F5F0FF;}
+.light-mode .exrp{background:rgba(124,58,237,0.08);color:#6D28D9;}
+.light-mode .ex-section-title{color:#7C3AED;}
 /* Sidebar nav */
-.light-mode .ni{color:#2A3F6A;}
-.light-mode .ni:hover{background:rgba(0,60,180,0.04);color:#0A1535;}
-.light-mode .ni.on{color:#0055DD;border-left-color:#0055DD;background:rgba(0,80,200,0.05);}
-.light-mode .ns{color:#4A5E88;}
-.light-mode .wbadge{background:rgba(200,0,0,0.06);color:#CC2200;border-color:rgba(200,0,0,0.15);}
-.light-mode .wbadge.ok{background:rgba(0,80,200,0.06);color:#0044BB;border-color:rgba(0,80,200,0.15);}
+.light-mode .ni{color:#475569;}
+.light-mode .ni:hover{background:#F8FAFC;color:#1E293B;}
+.light-mode .ni.on{color:#7C3AED;border-left-color:#7C3AED;background:rgba(124,58,237,0.05);}
+.light-mode .ns{color:#94A3B8;}
+.light-mode .wbadge{background:rgba(220,38,38,0.06);color:#DC2626;border-color:rgba(220,38,38,0.15);}
+.light-mode .wbadge.ok{background:rgba(124,58,237,0.06);color:#7C3AED;border-color:#DDD6FE;}
 /* Subnav */
-.light-mode .subnav{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
-.light-mode .sni{color:#6078AA;}
-.light-mode .sni:hover{color:#0A1535;}
-.light-mode .sni.on{color:#0055DD;border-bottom-color:#0055DD;}
+.light-mode .subnav{background:#FFFFFF;border-color:#F1F5F9;}
+.light-mode .sni{color:#64748B;}
+.light-mode .sni:hover{color:#1E293B;}
+.light-mode .sni.on{color:#7C3AED;border-bottom-color:#7C3AED;}
 /* Context badges */
-.light-mode .cw{background:rgba(0,80,200,0.09);color:#004BB0;}
-.light-mode .cc{background:rgba(80,0,200,0.09);color:#5500BB;}
-.light-mode .cb{background:rgba(180,0,0,0.08);color:#AA2200;}
-.light-mode .co{background:rgba(0,140,80,0.09);color:#006040;}
-.light-mode .cr{background:rgba(0,60,180,0.07);color:#2A3F6A;}
+.light-mode .cw{background:rgba(124,58,237,0.06);color:#6D28D9;}
+.light-mode .cc{background:rgba(16,185,129,0.06);color:#059669;}
+.light-mode .cb{background:rgba(220,38,38,0.06);color:#DC2626;}
+.light-mode .co{background:rgba(245,158,11,0.07);color:#D97706;}
+.light-mode .cr{background:#F8FAFC;color:#475569;}
 /* Buttons */
-.light-mode .bp{background:linear-gradient(135deg,#0066EE,#0044BB);color:#FFFFFF;}
-.light-mode .bp:hover{filter:brightness(1.06);}
-.light-mode .bs{background:#F0F6FF;border-color:rgba(0,60,180,0.15);color:#0A1535;}
-.light-mode .bs:hover{background:#E4EFFF;border-color:rgba(0,60,180,0.25);}
-.light-mode .bwarn{background:rgba(200,0,0,0.07);color:#CC2200;border-color:rgba(200,0,0,0.2);}
+.light-mode .bp{background:linear-gradient(135deg,#7C3AED,#6D28D9);color:#FFFFFF;}
+.light-mode .bp:hover{filter:brightness(1.07);}
+.light-mode .bs{background:#F8FAFC;border-color:#E2E8F0;color:#1E293B;}
+.light-mode .bs:hover{background:#F1F5F9;border-color:#CBD5E1;}
+.light-mode .bwarn{background:rgba(220,38,38,0.07);color:#DC2626;border-color:rgba(220,38,38,0.2);}
 /* Modals */
-.light-mode .modal{background:#FFFFFF;border-color:rgba(0,60,180,0.1);}
-.light-mode .mh{border-color:rgba(0,60,180,0.09);}
-.light-mode .mf{border-color:rgba(0,60,180,0.09);}
-.light-mode .mcl{background:#F0F6FF;color:#6078AA;}
-.light-mode .mcl:hover{background:#E4EFFF;color:#0A1535;}
+.light-mode .modal{background:#FFFFFF;border-color:#E2E8F0;}
+.light-mode .mh{border-color:#F1F5F9;}
+.light-mode .mf{border-color:#F1F5F9;}
+.light-mode .mcl{background:#F8FAFC;color:#64748B;}
+.light-mode .mcl:hover{background:#F1F5F9;color:#1E293B;}
 /* Upload zones */
-.light-mode .uz{border-color:rgba(0,60,180,0.2);}
-.light-mode .uz:hover{border-color:#0055DD;background:rgba(0,80,200,0.02);}
-.light-mode .upload-half:hover{border-color:#0055DD;}
-.light-mode .upload-half.has{border-color:rgba(0,80,200,0.4);background:rgba(0,80,200,0.04);}
+.light-mode .uz{border-color:#E2E8F0;}
+.light-mode .uz:hover{border-color:#7C3AED;background:rgba(124,58,237,0.02);}
+.light-mode .upload-half:hover{border-color:#7C3AED;}
+.light-mode .upload-half.has{border-color:#C4B5FD;background:rgba(124,58,237,0.03);}
 /* Inputs */
-.light-mode .ta,.light-mode .inp,.light-mode .sel{background:#FFFFFF;border-color:rgba(0,60,180,0.12);color:#0A1535;}
-.light-mode .ta:focus,.light-mode .inp:focus{border-color:rgba(0,80,200,0.4);box-shadow:0 0 0 3px rgba(0,80,200,0.07);}
-.light-mode .ta::placeholder,.light-mode .inp::placeholder{color:#90A8CC;}
+.light-mode .ta,.light-mode .inp,.light-mode .sel{background:#FFFFFF;border-color:#E2E8F0;color:#1E293B;}
+.light-mode .ta:focus,.light-mode .inp:focus{border-color:#7C3AED;box-shadow:0 0 0 3px rgba(124,58,237,0.08);}
+.light-mode .ta::placeholder,.light-mode .inp::placeholder{color:#94A3B8;}
 /* Dots loader */
-.light-mode .dots span{background:#0055DD;}
+.light-mode .dots span{background:#7C3AED;}
 /* Error */
-.light-mode .err-banner{background:rgba(200,0,0,0.06);border-color:rgba(200,0,0,0.18);color:#AA1100;}
+.light-mode .err-banner{background:rgba(220,38,38,0.05);border-color:rgba(220,38,38,0.15);color:#DC2626;}
 /* Coming soon */
-.light-mode .cs-item{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
-.light-mode .cs-badge{background:rgba(0,80,200,0.07);border-color:rgba(0,80,200,0.15);color:#0044BB;}
+.light-mode .cs-item{background:#FFFFFF;border-color:#F1F5F9;}
+.light-mode .cs-badge{background:rgba(124,58,237,0.06);border-color:#DDD6FE;color:#6D28D9;}
 /* Toggle */
-.light-mode .toggle{background:#D0DDEE;border-color:rgba(0,60,180,0.15);}
-.light-mode .toggle.on{background:#0055DD;}
+.light-mode .toggle{background:#E2E8F0;border-color:#CBD5E1;}
+.light-mode .toggle.on{background:#7C3AED;}
 .light-mode .toggle.on .toggle-thumb{background:#FFFFFF;}
 /* AI box day note */
-.light-mode .bp-note{background:#F0F6FF;color:#2A3F70;}
+.light-mode .bp-note{background:#FAF5FF;color:#374151;}
 /* Week reasoning */
-.light-mode .week-reasoning{background:#EAF2FF;border-color:rgba(0,80,200,0.15);}
-.light-mode .reasoning-lbl{color:#0044BB;}
+.light-mode .week-reasoning{background:#FAF5FF;border-color:#DDD6FE;}
+.light-mode .reasoning-lbl{color:#6D28D9;}
 /* Mob header */
-.light-mode .mob-header{background:#FFFFFF;border-color:rgba(0,60,180,0.09);}
-.light-mode .mob-logo em{background:linear-gradient(135deg,#0055DD,#0033AA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.light-mode .mob-date{color:#2A3F6A;}
+.light-mode .mob-header{background:#FFFFFF;border-color:#F1F5F9;}
+.light-mode .mob-logo em{background:linear-gradient(135deg,#7C3AED,#6D28D9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.light-mode .mob-date{color:#475569;}
 .light-mode .mob-streak{background:rgba(0,80,200,0.08);border-color:rgba(0,80,200,0.18);color:#0044BB;}
 .light-mode .mob-wbadge.ok{background:#0055DD;box-shadow:0 0 5px rgba(0,80,200,0.4);}
 .light-mode .mob-wbadge.err{background:#CC2200;}
 /* Topbar */
-.light-mode .ptitle em{background:linear-gradient(135deg,#0055DD,#0033AA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.light-mode .ptitle em{background:linear-gradient(135deg,#7C3AED,#6D28D9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
 /* Scrollbar */
 .light-mode ::-webkit-scrollbar-thumb{background:#C0D0EE;}
 /* Bottom nav */
@@ -273,7 +284,7 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--font
 .sb-foot{margin-top:auto;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
 .streak-sb{background:var(--bg3);border:1px solid rgba(92,255,176,.15);border-radius:9px;
   padding:8px 11px;display:flex;align-items:center;gap:8px}
-.streak-num{font-size:17px;font-weight:800;font-family:var(--mono);color:var(--a);line-height:1}
+.streak-num{font-size:17px;font-weight:800;font-family:var(--mono);color:var(--a2);line-height:1}
 .streak-lbl{font-size:9px;color:var(--m2)}
 .wbadge{font-size:10px;padding:4px 9px;border-radius:6px;text-align:center;
   background:rgba(255,107,107,.08);color:var(--warn);border:1px solid rgba(255,107,107,.15)}
@@ -834,9 +845,9 @@ function extractScore(dayData) {
 }
 
 const MODULE_CONFIG = {
-  fitness: { color:"var(--a)",    bg:"rgba(92,255,176,0.08)",   border:"rgba(92,255,176,0.3)",   icon:"🏋️", label:"Fitness" },
-  skills:  { color:"#7ABAFF",    bg:"rgba(92,158,255,0.08)",   border:"rgba(92,158,255,0.3)",   icon:"📚", label:"Skills"  },
-  hobbies: { color:"#CC88FF",    bg:"rgba(180,100,255,0.08)",  border:"rgba(180,100,255,0.3)",  icon:"🎨", label:"Hobbies" },
+  fitness: { color:"var(--fitness-color)", bg:"var(--fitness-bg)", border:"var(--fitness-border)", icon:"🏋️", label:"Fitness" },
+  skills:  { color:"var(--skills-color)",  bg:"var(--skills-bg)",  border:"var(--skills-border)",  icon:"📚", label:"Skills"  },
+  hobbies: { color:"var(--hobbies-color)", bg:"var(--hobbies-bg)", border:"var(--hobbies-border)", icon:"🎨", label:"Hobbies" },
 };
 
 function RecoveryRingFromData({ dayData }) {
@@ -1033,7 +1044,14 @@ function TodayTab({ streak, weekPlan }) {
               <div className="tic" style={{background:cfg.bg,fontSize:18}}>{task.icon}</div>
               <div className="tinfo">
                 <div className="tlbl">{task.label}</div>
-                <div className="tdsc">{task.desc}</div>
+                <div className="tdsc">
+                  {task.day?.time_window && (
+                    <span style={{color:cfg.color,fontWeight:700,marginRight:5,fontFamily:"var(--mono)",fontSize:10}}>
+                      {task.day.time_window}
+                    </span>
+                  )}
+                  {task.id==="sleep" ? task.desc : (task.day?.time_window ? cfg.label : task.desc)}
+                </div>
               </div>
               {task.done
                 ? <span className="tbdg d" style={{background:cfg.bg,color:cfg.color}}>Done ✓</span>
@@ -1042,18 +1060,26 @@ function TodayTab({ streak, weekPlan }) {
               {!task.done && task.id!=="sleep" && <span style={{color:cfg.color,fontSize:15,marginLeft:4}}>›</span>}
             </div>
 
-            {/* Expanded session detail */}
+            {/* Expanded session detail — shows focus + check-in question */}
             {isExpanded && !task.done && task.day && (
               <div style={{background:cfg.bg,border:"1px solid "+cfg.border,borderRadius:"0 0 10px 10px",
                 padding:"12px 14px",marginTop:-4,borderTop:"none",animation:"fadeup .2s ease"}}>
                 {task.sessionFocus && (
-                  <div style={{fontSize:12,color:"var(--m2)",lineHeight:1.65,marginBottom:10}}>
+                  <div style={{fontSize:12,color:"var(--m2)",lineHeight:1.65,marginBottom:8}}>
                     {task.sessionFocus}
                   </div>
                 )}
-                <button className="btn bp" style={{width:"100%",background:cfg.color==="var(--a)"?"linear-gradient(135deg,var(--a),#3DDFAA)":cfg.color}}
+                {task.day?.check_in_question && (
+                  <div style={{fontSize:11,color:cfg.color,fontWeight:600,
+                    background:"var(--bg2)",borderRadius:7,padding:"7px 10px",
+                    marginBottom:10,borderLeft:"2px solid "+cfg.border,lineHeight:1.6}}>
+                    ✦ {task.day.check_in_question}
+                  </div>
+                )}
+                <button className="btn bp" style={{width:"100%",
+                  background:"linear-gradient(135deg,"+cfg.color+","+cfg.color+"BB)"}}
                   onClick={()=>setCompletingTask(task)}>
-                  ✅ Mark Complete + Answer Questions
+                  ✅ Mark Complete
                 </button>
               </div>
             )}
@@ -1511,12 +1537,13 @@ function NotesTab() {
   const [processingId, setProcessingId] = useState(null); // which note is being processed
   const [processingAll, setProcessingAll] = useState(false);
   const [loading, setLoading]     = useState(true);
+  const [filterMod, setFilterMod] = useState("all");
 
   const MODULE_COLORS = {
-    fitness:  {bg:"rgba(92,255,176,0.08)",  border:"rgba(92,255,176,0.3)",  color:"var(--a)"},
-    hobbies:  {bg:"rgba(180,100,255,0.08)", border:"rgba(180,100,255,0.3)", color:"#CC88FF"},
-    skills:   {bg:"rgba(92,158,255,0.08)",  border:"rgba(92,158,255,0.3)",  color:"#7ABAFF"},
-    general:  {bg:"rgba(255,255,255,0.04)", border:"var(--b)",              color:"var(--m2)"},
+    fitness:  {bg:"var(--fitness-bg)",  border:"var(--fitness-border)",  color:"var(--fitness-color)"},
+    hobbies:  {bg:"var(--hobbies-bg)",  border:"var(--hobbies-border)",  color:"var(--hobbies-color)"},
+    skills:   {bg:"var(--skills-bg)",   border:"var(--skills-border)",   color:"var(--skills-color)"},
+    general:  {bg:"var(--bg3)",         border:"var(--b2)",              color:"var(--m)"},
   };
 
   const load = async () => {
@@ -1616,19 +1643,19 @@ function NotesTab() {
 
       {/* Input */}
       <textarea className="ta" value={input} onChange={e=>setInput(e.target.value)}
-        style={{minHeight:80,marginBottom:8}}/>
-      <div style={{display:"flex",gap:7,marginBottom:16,flexWrap:"wrap"}}>
+        style={{minHeight:72,marginBottom:8}}/>
+      <div style={{display:"flex",gap:7,marginBottom:14,flexWrap:"wrap"}}>
         <button className="btn bp bsm" onClick={addNote} disabled={adding||!input.trim()}>
           {adding?<Dots/>:"Add Note"}
         </button>
-        {unprocessedCount > 0 && (
-          <button className="btn bs" onClick={processAll}
-            disabled={processingAll} style={{flex:"1 1 160px"}}>
-            {processingAll
-              ? <><Dots/> Processing…</>
-              : `✦ Process ${unprocessedCount} unprocessed note${unprocessedCount>1?"s":""}`}
-          </button>
-        )}
+        <button className="btn bs" onClick={processAll}
+          disabled={processingAll||notes.every(n=>n.processed)} style={{flex:"1 1 160px"}}>
+          {processingAll
+            ? <><Dots/> Processing…</>
+            : unprocessedCount > 0
+              ? `✦ Process ${unprocessedCount} note${unprocessedCount>1?"s":""}`
+              : "✦ Process All Notes"}
+        </button>
       </div>
 
       {/* AI contexts by module */}
@@ -1652,15 +1679,46 @@ function NotesTab() {
         </div>
       )}
 
-      {/* All notes */}
+      {/* Filter bar */}
+      {notes.length > 0 && (
+        <div style={{display:"flex",gap:5,marginBottom:12,flexWrap:"wrap"}}>
+          {[
+            {id:"all",    label:"All",          color:"var(--m)"},
+            {id:"fitness",label:"Fitness Goal",  color:"var(--fitness-color)"},
+            {id:"skills", label:"Skill Goal",    color:"var(--skills-color)"},
+            {id:"hobbies",label:"Hobby Goal",    color:"var(--hobbies-color)"},
+            {id:"general",label:"General Info",  color:"var(--m)"},
+          ].map(f => {
+            const active = filterMod === f.id;
+            const count = f.id === "all" ? notes.length : notes.filter(n => n.module === f.id).length;
+            if (f.id !== "all" && count === 0) return null;
+            return (
+              <button key={f.id} onClick={()=>setFilterMod(f.id)}
+                style={{padding:"4px 10px",borderRadius:20,border:"1px solid",fontSize:10,
+                  fontWeight:700,cursor:"pointer",letterSpacing:"0.3px",transition:"all .12s",
+                  background: active ? f.color : "var(--bg2)",
+                  borderColor: active ? f.color : "var(--b)",
+                  color: active ? (f.id==="all"?"var(--t)":"var(--bg2)") : f.color}}>
+                {f.label} {count > 0 && <span style={{opacity:0.75}}>({count})</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* All notes — filtered */}
       {notes.length > 0 ? (
         <div>
           <div style={{fontSize:9,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",
             color:"var(--m)",marginBottom:8,display:"flex",justifyContent:"space-between"}}>
-            <span>{notes.length} note{notes.length>1?"s":""}</span>
-            <span style={{fontWeight:400}}>Tap pencil to edit</span>
+            <span>
+              {filterMod==="all"
+                ? `${notes.length} note${notes.length>1?"s":""}`
+                : notes.filter(n=>n.module===filterMod).length + " note" + (notes.filter(n=>n.module===filterMod).length!==1?"s":"")}
+            </span>
+            <span style={{fontWeight:400}}>Tap ✏ to edit</span>
           </div>
-          {notes.map(n => {
+          {notes.filter(n => filterMod==="all" || n.module===filterMod).map(n => {
             const c = MODULE_COLORS[n.module || "general"] || MODULE_COLORS.general;
             const isEditing = editId === n.id;
             return (
@@ -1722,7 +1780,9 @@ function NotesTab() {
       ) : (
         <div className="empty-state">
           <div style={{fontSize:26,marginBottom:7}}>📝</div>
-          No notes yet. Add your first note above.
+          {filterMod==="all"
+            ? "No notes yet. Add your first note above."
+            : `No ${filterMod} notes yet. Add a note and process it.`}
         </div>
       )}
     </div>
@@ -2480,6 +2540,272 @@ function HobbiesTab() { return <ModuleTab module="hobbies"/>; }
 function SkillsTab()  { return <ModuleTab module="skills"/>; }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
+// HISTORY TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+function HistoryTab() {
+  const [mod, setMod]           = useState("fitness");
+  const [data, setData]         = useState(null);
+  const [profile, setProfile]   = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [logOpen, setLogOpen]   = useState(false);
+
+  const cfg = MODULE_CONFIG[mod] || MODULE_CONFIG.fitness;
+
+  const load = async (m) => {
+    setLoading(true); setData(null); setProfile(null);
+    try {
+      const [h, p] = await Promise.all([
+        api("/history?module=" + m),
+        api("/user/profile?module=" + m),
+      ]);
+      setData(h);
+      setProfile(p.profile || null);
+    } catch(e) { console.error(e); }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(mod); }, [mod]);
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const completedDates = new Set((data?.sessions || []).filter(s => s.completed).map(s => s.date));
+
+  // Build heatmap — last 16 weeks, Mon-Sun rows
+  const buildHeatmap = () => {
+    const today = new Date();
+    const cells = [];
+    // Go back 15 weeks from current Monday
+    const curDay = today.getDay();
+    const curMonday = new Date(today);
+    curMonday.setDate(today.getDate() + (curDay === 0 ? -6 : 1 - curDay));
+    for (let w = 15; w >= 0; w--) {
+      const weekStart = new Date(curMonday);
+      weekStart.setDate(curMonday.getDate() - w * 7);
+      const week = [];
+      for (let d = 0; d < 7; d++) {
+        const day = new Date(weekStart);
+        day.setDate(weekStart.getDate() + d);
+        const ds = day.getFullYear() + "-" + String(day.getMonth()+1).padStart(2,"0") + "-" + String(day.getDate()).padStart(2,"0");
+        const isFuture = day > today;
+        const done = completedDates.has(ds);
+        week.push({ ds, done, isFuture });
+      }
+      cells.push(week);
+    }
+    return cells;
+  };
+
+  // Build weekly bar chart data
+  const buildBars = () => {
+    const stats = data?.weekly_stats || [];
+    return stats.slice(-12); // last 12 weeks
+  };
+
+  // Format date
+  const fmt = ds => {
+    if (!ds) return "";
+    const d = new Date(ds + "T12:00:00");
+    return d.toLocaleDateString("en-US", { month:"short", day:"numeric" });
+  };
+
+  const heatmap = data ? buildHeatmap() : [];
+  const bars = data ? buildBars() : [];
+  const sessions = data?.sessions || [];
+  const totalDone = sessions.filter(s => s.completed).length;
+  const streak = data?.streak || { count: 0, best_streak: 0 };
+
+  return (
+    <div className="cnt">
+      {/* Module filter bar */}
+      <div style={{display:"flex",gap:7,marginBottom:16}}>
+        {["fitness","skills","hobbies"].map(m => {
+          const c = MODULE_CONFIG[m];
+          const active = mod === m;
+          return (
+            <button key={m} onClick={()=>setMod(m)}
+              style={{flex:1,padding:"8px 4px",borderRadius:8,border:"1px solid",
+                fontSize:11,fontWeight:700,letterSpacing:"0.5px",cursor:"pointer",
+                transition:"all .15s",
+                background: active ? c.bg : "var(--bg2)",
+                borderColor: active ? c.border : "var(--b)",
+                color: active ? c.color : "var(--m)"}}>
+              {c.icon} {c.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {loading && <div style={{textAlign:"center",padding:30}}><Dots/></div>}
+
+      {!loading && (
+        <>
+          {/* Stats row */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
+            {[
+              { label:"Sessions Done", value: totalDone },
+              { label:"Current Streak", value: streak.count + "d" },
+              { label:"Best Streak", value: (streak.best_streak || 0) + "d" },
+            ].map((s,i) => (
+              <div key={i} style={{background:"var(--bg2)",border:"1px solid var(--b)",
+                borderRadius:10,padding:"10px 11px",textAlign:"center"}}>
+                <div style={{fontSize:9,color:"var(--m)",letterSpacing:"1.5px",
+                  textTransform:"uppercase",marginBottom:4}}>{s.label}</div>
+                <div style={{fontSize:22,fontWeight:800,fontFamily:"var(--mono)",
+                  color:cfg.color,lineHeight:1}}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Activity Heatmap */}
+          <div style={{marginBottom:18}}>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",
+              color:"var(--m)",marginBottom:8}}>Activity — last 16 weeks</div>
+            <div style={{display:"flex",gap:3,overflowX:"auto",paddingBottom:4}}>
+              {/* Day labels */}
+              <div style={{display:"flex",flexDirection:"column",gap:3,marginRight:2}}>
+                {["M","T","W","T","F","S","S"].map((d,i) => (
+                  <div key={i} style={{width:10,height:10,fontSize:7,color:"var(--m)",
+                    display:"flex",alignItems:"center",justifyContent:"center"}}>{d}</div>
+                ))}
+              </div>
+              {heatmap.map((week, wi) => (
+                <div key={wi} style={{display:"flex",flexDirection:"column",gap:3}}>
+                  {week.map((cell, di) => (
+                    <div key={di} title={cell.ds}
+                      style={{width:10,height:10,borderRadius:2,
+                        background: cell.isFuture ? "var(--bg3)"
+                          : cell.done ? cfg.color
+                          : "var(--bg3)",
+                        opacity: cell.isFuture ? 0.3 : cell.done ? 1 : 0.55,
+                        border: cell.done ? "none" : "1px solid var(--b)",
+                      }}/>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6}}>
+              <div style={{width:10,height:10,borderRadius:2,background:"var(--bg3)",border:"1px solid var(--b)"}}/>
+              <span style={{fontSize:9,color:"var(--m)"}}>No session</span>
+              <div style={{width:10,height:10,borderRadius:2,background:cfg.color,marginLeft:8}}/>
+              <span style={{fontSize:9,color:"var(--m)"}}>Completed</span>
+            </div>
+          </div>
+
+          {/* Weekly bar chart — scheduled vs completed */}
+          {bars.length > 0 && (
+            <div style={{marginBottom:18}}>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",
+                color:"var(--m)",marginBottom:10}}>Weekly completion</div>
+              <div style={{display:"flex",alignItems:"flex-end",gap:4,height:72}}>
+                {bars.map((w,i) => {
+                  const pct = w.scheduled > 0 ? Math.round((w.completed / w.scheduled) * 100) : 0;
+                  const barH = Math.max(4, Math.round(pct * 0.64)); // max 64px
+                  return (
+                    <div key={i} style={{flex:1,display:"flex",flexDirection:"column",
+                      alignItems:"center",gap:3}}>
+                      <div style={{fontSize:8,color:pct>=80?cfg.color:"var(--m)",fontWeight:700}}>
+                        {pct > 0 ? pct+"%" : "—"}
+                      </div>
+                      <div style={{width:"100%",background:"var(--bg3)",borderRadius:3,
+                        height:64,display:"flex",alignItems:"flex-end",overflow:"hidden"}}>
+                        <div style={{width:"100%",height:barH,
+                          background: pct>=80 ? cfg.color : pct>=50 ? "var(--gold)" : "var(--warn)",
+                          borderRadius:"3px 3px 0 0",transition:"height .3s"}}/>
+                      </div>
+                      <div style={{fontSize:7,color:"var(--m)",
+                        writingMode:"horizontal-tb",textAlign:"center"}}>
+                        W{w.week_number||i+1}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{display:"flex",gap:10,marginTop:6}}>
+                {[["var(--warn)","<50%"],["var(--gold)","50–79%"],[cfg.color,"80%+"]].map(([c,l],i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:4}}>
+                    <div style={{width:8,height:8,borderRadius:1,background:c}}/>
+                    <span style={{fontSize:9,color:"var(--m)"}}>{l}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* AI Pattern Profile */}
+          {profile ? (
+            <div style={{marginBottom:18}}>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",
+                color:"var(--m)",marginBottom:8}}>What the AI has learned about you</div>
+              <div className="aib" style={{border:"1px solid "+cfg.border}}>
+                <div className="aib-t" style={{color:cfg.color,marginBottom:6}}>
+                  ✦ {cfg.label} Profile · {data?.week_count || 0} week{data?.week_count!==1?"s":""} of data
+                </div>
+                <div style={{fontSize:12,lineHeight:1.75,color:"var(--m2)",whiteSpace:"pre-wrap"}}>
+                  {profile}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{marginBottom:18}}>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",
+                color:"var(--m)",marginBottom:8}}>AI Profile</div>
+              <div className="empty-state" style={{minHeight:70}}>
+                <div style={{fontSize:20,marginBottom:6}}>{cfg.icon}</div>
+                Complete a few sessions and the AI will build a personalized profile of your habits and patterns.
+              </div>
+            </div>
+          )}
+
+          {/* Session Log */}
+          <div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",
+                color:"var(--m)"}}>Session log ({totalDone} total)</div>
+              {sessions.length > 5 && (
+                <button className="btn bs bsm" onClick={()=>setLogOpen(o=>!o)}>
+                  {logOpen ? "Show less" : "Show all"}
+                </button>
+              )}
+            </div>
+            {sessions.length === 0 && (
+              <div className="empty-state">No sessions logged yet. Complete your first session to start tracking.</div>
+            )}
+            {(logOpen ? sessions : sessions.slice(-5)).reverse().map((s,i) => (
+              <div key={i} style={{background:"var(--bg2)",border:"1px solid var(--b)",
+                borderRadius:10,padding:"10px 13px",marginBottom:7}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:s.answers?.length?6:0}}>
+                  <div style={{width:8,height:8,borderRadius:"50%",flexShrink:0,
+                    background:s.completed?cfg.color:"var(--warn)"}}/>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"var(--t)"}}>{s.session_name}</div>
+                    <div style={{fontSize:10,color:"var(--m)",fontFamily:"var(--mono)"}}>{fmt(s.date)}</div>
+                  </div>
+                  {!s.completed && (
+                    <span style={{fontSize:9,padding:"2px 7px",borderRadius:4,
+                      background:"rgba(248,113,113,0.1)",color:"var(--warn)",fontWeight:700}}>skipped</span>
+                  )}
+                </div>
+                {s.answers?.filter(a=>a.answer).map((a,j) => (
+                  <div key={j} style={{fontSize:11,color:"var(--m2)",lineHeight:1.6,
+                    paddingLeft:16,borderLeft:"2px solid var(--b)",marginTop:4}}>
+                    <span style={{color:"var(--m)",fontWeight:600}}>{a.question}: </span>{a.answer}
+                  </div>
+                ))}
+                {s.observation && (
+                  <div style={{fontSize:11,color:"var(--m2)",lineHeight:1.6,marginTop:6,
+                    padding:"6px 9px",background:"var(--bg3)",borderRadius:7}}>
+                    {s.observation}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // NAV
 // ═══════════════════════════════════════════════════════════════════════════════
 const NAV = [
@@ -2488,6 +2814,7 @@ const NAV = [
   { id:"skills",   icon:"📚", label:"Skills",  built:true },
   { id:"hobbies",  icon:"🎨", label:"Hobbies", built:true },
   { id:"notes",    icon:"📝", label:"Notes",   built:true },
+  { id:"history",  icon:"📊", label:"History", built:true },
   { id:"settings", icon:"⚙️", label:"Settings",built:true },
 ];
 
@@ -2623,6 +2950,7 @@ export default function App() {
             {tab==="home"     && <HomeTab streak={streak} weekPlan={weekPlan}/>}
             {tab==="fitness"  && <FitnessTab/>}
             {tab==="skills"   && <SkillsTab/>}
+            {tab==="history"  && <HistoryTab/>}
             {tab==="hobbies"  && <HobbiesTab/>}
             {tab==="notes"    && <NotesTab/>}
             {tab==="settings" && <SettingsTab onReset={()=>setAuthed(false)} lightMode={lightMode} toggleLight={toggleLight}/>}
