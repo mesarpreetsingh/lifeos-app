@@ -888,18 +888,18 @@ function RecoveryRing({ score }) {
 
 function TodayTab({ streak, weekPlan }) {
   const today = todayStr();
-  const [dayData, setDayData]       = useState(null);
-  const [loading, setLoading]       = useState(true);
-  const [streaks, setStreaks]       = useState({});
-  const [lifeScore, setLifeScore]   = useState(null);
-  const [uploadOpen, setUploadOpen] = useState(false);
-  const [expandedTask, setExpandedTask] = useState(null); // task id expanded
+  const [dayData, setDayData]           = useState(null);
+  const [loading, setLoading]           = useState(true);
+  const [streaks, setStreaks]           = useState({});
+  const [lifeScore, setLifeScore]       = useState(null);
+  const [uploadOpen, setUploadOpen]     = useState(false);
+  const [expandedTask, setExpandedTask] = useState(null);
   const [completingTask, setCompletingTask] = useState(null);
-  const [nextWeekPlan, setNextWeekPlan]     = useState(undefined); // undefined=loading, null=none
+  const [todaySessions, setTodaySessions]  = useState({}); // adaptive sessions from /session/today
+  const [nextWeekHasPlan, setNextWeekHasPlan] = useState(undefined);
   const [bodyCompThisWeek, setBodyCompThisWeek] = useState(null);
 
   const ws = weekStart(today);
-  // Next week start = ws + 7 days
   const nextWs = (() => {
     const d = new Date(ws + "T12:00:00");
     d.setDate(d.getDate() + 7);
@@ -911,23 +911,25 @@ function TodayTab({ streak, weekPlan }) {
 
   const load = useCallback(async () => {
     try {
-      const [d, s, ls] = await Promise.all([
+      const [d, s, ls, ts] = await Promise.all([
         api("/data/day/" + today),
         api("/module/streaks"),
         api("/life/score?week_start=" + ws),
+        api("/session/today").catch(() => ({ sessions: {} })),
       ]);
       setDayData(d);
       setStreaks(s.streaks || {});
       setLifeScore(ls.score);
+      setTodaySessions(ts.sessions || {});
     } catch { setDayData(null); }
     setLoading(false);
   }, [today, ws]);
 
-  // Check next week plan + body comp (for reminders) — runs independently
   useEffect(() => {
-    api("/data/week/" + nextWs)
-      .then(d => setNextWeekPlan(d?.fitness?.days?.length > 0 ? d : null))
-      .catch(() => setNextWeekPlan(null));
+    // Check next-week schedule reminder
+    api("/session/day-status?week_start=" + nextWs)
+      .then(d => setNextWeekHasPlan(d && Object.keys(d.days || {}).length > 0))
+      .catch(() => setNextWeekHasPlan(false));
     api("/data/body-comp-latest")
       .then(d => setBodyCompThisWeek(d?.week_start || null))
       .catch(() => setBodyCompThisWeek(null));
@@ -940,43 +942,53 @@ function TodayTab({ streak, weekPlan }) {
     setUploadOpen(false);
   };
 
-  // Build time-sorted task list from all modules
+  // Build time-sorted task list — uses adaptive /session/today first, falls back to weekPlan
   const buildTasks = () => {
     const tasks = [];
-    // Sleep upload always first
     tasks.push({
       id: "sleep", module: "fitness", icon: "🌙",
       label: "Upload Sleep + Activity",
       desc: "Samsung Health screenshots",
-      time: "00:00", // always sorts first
+      time: "00:00",
       done: !!dayData?.combined_analysis,
       onTap: () => setUploadOpen(true),
     });
-    // Module sessions for today
     for (const mod of ["fitness","skills","hobbies"]) {
-      const plan = weekPlan?.[mod]?.days;
-      if (!plan) continue;
-      const todayPlan = plan.find(d => d.day?.slice(0,3) === todayDayAbbr);
-      if (!todayPlan || todayPlan.is_rest) continue;
       const cfg = MODULE_CONFIG[mod];
-      // Check if completed today
-      const sessionDone = false; // would need to track per-module completion
-      tasks.push({
-        id: mod + "_session",
+      // Prefer adaptive session from /session/today
+      const adaptiveSession = todaySessions[mod];
+      // Fallback to static weekPlan
+      const staticPlan = weekPlan?.[mod]?.days?.find(d => d.day?.slice(0,3) === todayDayAbbr);
+      const session = adaptiveSession || staticPlan;
+      if (!session || session.is_rest || session.status === "skipped") continue;
+      const isDone = session.status === "completed";
+      // Build day object compatible with DayDetailModal
+      const dayObj = adaptiveSession ? {
         module: mod,
-        icon: cfg.icon,
-        label: todayPlan.session_name || (cfg.label + " Session"),
-        desc: todayPlan.time_window ? todayPlan.time_window + " · " + cfg.label : cfg.label,
-        time: todayPlan.time_window ? todayPlan.time_window.split("-")[0].trim() : "12:00",
-        sessionFocus: todayPlan.session_detail || todayPlan.ai_note || "",
-        day: todayPlan,
-        done: sessionDone,
-        onTap: () => {
-          setExpandedTask(t => t === mod+"_session" ? null : mod+"_session");
-        },
+        date: today,
+        day: todayDayAbbr,
+        session_name:      session.session_name,
+        session_detail:    session.session_detail,
+        check_in_question: session.check_in_question,
+        time_window:       session.time_window,
+        ai_note:           session.ai_note,
+        is_rest:           false,
+        // mark it as adaptive so DayDetailModal knows to call /module/session/complete
+        adaptive: true,
+        adaptive_date: today,
+      } : staticPlan;
+      tasks.push({
+        id: mod + "_session", module: mod, icon: cfg.icon,
+        label: session.session_name || (cfg.label + " Session"),
+        desc: session.time_window || cfg.label,
+        time: session.time_window ? session.time_window.split("-")[0].trim() : "12:00",
+        sessionFocus: session.session_detail || session.ai_note || "",
+        day: dayObj,
+        done: isDone,
+        isAdaptive: !!adaptiveSession,
+        onTap: () => setExpandedTask(t => t === mod+"_session" ? null : mod+"_session"),
       });
     }
-    // Sort by time
     tasks.sort((a,b) => {
       const toMins = t => { const [h,m] = t.replace(/[apm]/gi,"").split(":").map(Number); return (h||0)*60+(m||0); };
       return toMins(a.time) - toMins(b.time);
@@ -995,7 +1007,7 @@ function TodayTab({ streak, weekPlan }) {
   );
 
   // Reminder banners — only show on free day OR if schedule is critically missing
-  const needsSchedule = nextWeekPlan === null; // null = loaded but no plan
+  const needsSchedule = nextWeekHasPlan === false; // false = loaded but no plan
   const daysSinceBodyComp = bodyCompThisWeek
     ? Math.floor((new Date(today) - new Date(bodyCompThisWeek + "T12:00:00")) / 86400000)
     : 99;
@@ -1284,14 +1296,18 @@ function DayDetailModal({ day, weekStartDate, onClose, onCompleted }) {
   const isToday = actualDate === todayStr();
   const isPast  = actualDate < todayStr();
 
-  const [answer, setAnswer]         = useState("");
-  const [completing, setCompleting] = useState(false);
-  const [completed, setCompleted]   = useState(false);
+  const [answer, setAnswer]           = useState("");
+  const [completing, setCompleting]   = useState(false);
+  const [completed, setCompleted]     = useState(false);
   const [observation, setObservation] = useState(null);
-  const [err, setErr]               = useState(null);
+  const [skipping, setSkipping]       = useState(false);
+  const [skipReason, setSkipReason]   = useState("");
+  const [skipOpen, setSkipOpen]       = useState(false);
+  const [skipped, setSkipped]         = useState(false);
+  const [nextSession, setNextSession] = useState(null); // next day generated after skip/complete
+  const [err, setErr]                 = useState(null);
 
   useEffect(()=>{
-    // Check if already completed today
     api(`/data/day/${actualDate}`).then(d=>{
       if (module === "fitness" && d.workout_completed) setCompleted(true);
     }).catch(()=>{});
@@ -1331,9 +1347,33 @@ function DayDetailModal({ day, weekStartDate, onClose, onCompleted }) {
       });
       setObservation(res.observation);
       setCompleted(true);
+      // Check if next day was generated
+      if (res.next_session) setNextSession(res.next_session);
       if (onCompleted) onCompleted();
     } catch(e) { setErr(e.message); }
     setCompleting(false);
+  };
+
+  const handleSkip = async () => {
+    if (!skipReason.trim()) return;
+    setSkipping(true); setErr(null);
+    try {
+      const ws = weekStart(actualDate);
+      const res = await api("/session/skip", {
+        method: "POST",
+        body: JSON.stringify({
+          module,
+          date: actualDate,
+          skip_reason: skipReason.trim(),
+          week_start: ws,
+        })
+      });
+      setSkipped(true);
+      setSkipOpen(false);
+      if (res.next_session) setNextSession(res.next_session);
+      if (onCompleted) onCompleted();
+    } catch(e) { setErr(e.message); }
+    setSkipping(false);
   };
 
   return (
@@ -1416,20 +1456,70 @@ function DayDetailModal({ day, weekStartDate, onClose, onCompleted }) {
 
           <Err msg={err}/>
         </div>
-        <div className="mf">
-          <button className="btn bs" onClick={onClose}>Close</button>
-          {!completed && (isToday || isPast) && (
-            <button className="btn bp" style={{background:cfg.color==="var(--a)"?"linear-gradient(135deg,var(--a),#3DDFAA)":cfg.color}}
-              onClick={handleComplete} disabled={completing}>
-              {completing ? <><Dots/> Saving…</> : "✅ Mark Complete"}
-            </button>
+          {/* Next session preview — shown after completion or skip */}
+          {(completed || skipped) && nextSession && (
+            <div style={{marginTop:12,padding:"10px 12px",background:cfg.bg,
+              borderRadius:9,border:"1px solid "+cfg.border,animation:"fadeup .3s ease"}}>
+              <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",
+                color:cfg.color,marginBottom:5}}>✦ Tomorrow's session generated</div>
+              <div style={{fontSize:12,fontWeight:700,color:"var(--t)",marginBottom:2}}>
+                {nextSession.session_name}
+              </div>
+              <div style={{fontSize:11,color:"var(--m)",fontFamily:"var(--mono)"}}>
+                {nextSession.time_window}
+              </div>
+            </div>
           )}
-          {completed && (
-            <div style={{flex:1,textAlign:"center",color:cfg.color,fontSize:13,fontWeight:700,padding:"10px 0"}}>
-              ✓ Session Logged
+          {(completed || skipped) && !nextSession && (
+            <div style={{marginTop:8,fontSize:11,color:"var(--m)",textAlign:"center"}}>
+              ✦ Generating tomorrow's session…
             </div>
           )}
         </div>
+
+        <div className="mf">
+          <button className="btn bs" onClick={onClose}>Close</button>
+          {!completed && !skipped && (isToday || isPast) && (
+            <div style={{display:"flex",gap:7,flex:1}}>
+              <button className="btn bs" style={{color:"var(--warn)",borderColor:"rgba(248,113,113,0.3)"}}
+                onClick={()=>setSkipOpen(o=>!o)}>
+                Skip
+              </button>
+              <button className="btn bp" style={{flex:1,
+                background:"linear-gradient(135deg,"+cfg.color+","+cfg.color+"BB)"}}
+                onClick={handleComplete} disabled={completing}>
+                {completing ? <><Dots/> Saving…</> : "✅ Mark Complete"}
+              </button>
+            </div>
+          )}
+          {(completed || skipped) && (
+            <div style={{flex:1,textAlign:"center",color:cfg.color,fontSize:13,fontWeight:700,padding:"10px 0"}}>
+              {skipped ? "⏭ Session Skipped" : "✓ Session Logged"}
+            </div>
+          )}
+        </div>
+
+        {/* Skip reason drawer */}
+        {skipOpen && !completed && !skipped && (
+          <div style={{padding:"12px 16px",borderTop:"1px solid var(--b)",
+            background:"var(--bg3)",animation:"fadeup .2s ease"}}>
+            <div style={{fontSize:11,fontWeight:700,color:"var(--warn)",
+              letterSpacing:"1px",textTransform:"uppercase",marginBottom:8}}>
+              Why are you skipping?
+            </div>
+            <textarea className="ta" value={skipReason}
+              onChange={e=>setSkipReason(e.target.value)}
+              placeholder="e.g. Too tired after work, feeling sore, not enough time…"
+              style={{minHeight:60,marginBottom:8,fontSize:12}}/>
+            <div style={{display:"flex",gap:7}}>
+              <button className="btn bs bsm" onClick={()=>setSkipOpen(false)}>Cancel</button>
+              <button className="btn bwarn bsm" style={{flex:1}}
+                onClick={handleSkip} disabled={skipping||!skipReason.trim()}>
+                {skipping ? <><Dots/> Logging…</> : "Confirm Skip + Generate Next"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2222,7 +2312,7 @@ function ScheduleUploadModal({ weekStartDate, onClose }) {
     try {
       let body;
       if (mode === "text") {
-        body = { week_start: targetWeek, schedule_text: schedText.trim(), module: "fitness" };
+        body = { week_start: targetWeek, schedule_text: schedText.trim() };
       } else {
         const b64 = await new Promise((res, rej) => {
           const r = new FileReader();
@@ -2230,34 +2320,11 @@ function ScheduleUploadModal({ weekStartDate, onClose }) {
           r.onerror = rej;
           r.readAsDataURL(file);
         });
-        body = { week_start: targetWeek, schedule_image: b64, module: "fitness" };
+        body = { week_start: targetWeek, schedule_image: b64 };
       }
-      const res = await api("/workout/generate-week", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
-
-      // Duplicate detection response
-      if (res.duplicate) {
-        setDuplicate(res.message);
-        setLoading(false);
-        return;
-      }
-      setResult(res.reasoning || "Plan generated successfully.");
-    } catch(e) { setErr(e.message); }
-    setLoading(false);
-  };
-
-  const forceRegenerate = async () => {
-    setDuplicate(null); setLoading(true); setErr(null);
-    try {
-      const body = mode === "text"
-        ? { week_start: targetWeek, schedule_text: schedText.trim(), module: "fitness", force: true }
-        : { week_start: targetWeek, schedule_image: await new Promise((res,rej)=>{
-            const r=new FileReader();r.onload=()=>res({data:r.result.split(",")[1],type:file.type});r.onerror=rej;r.readAsDataURL(file);
-          }), module: "fitness", force: true };
-      const res = await api("/workout/generate-week", { method:"POST", body:JSON.stringify(body) });
-      setResult(res.reasoning || "Plan updated.");
+      // New adaptive endpoint — generates Day 1 for all modules + Life Coach brief
+      const res = await api("/schedule/upload", { method:"POST", body:JSON.stringify(body) });
+      setResult(res);
     } catch(e) { setErr(e.message); }
     setLoading(false);
   };
@@ -2342,42 +2409,54 @@ function ScheduleUploadModal({ weekStartDate, onClose }) {
             </div>
           )}
 
-          {duplicate && (
-            <div style={{background:"rgba(255,209,102,0.1)",border:"1px solid rgba(255,209,102,0.3)",
-              borderRadius:9,padding:"11px 13px",marginBottom:10}}>
-              <div style={{fontSize:11,fontWeight:700,color:"var(--gold)",marginBottom:5}}>
-                ⚠ Same schedule detected
+
+          <Err msg={err}/>
+
+          {result && typeof result === "object" && (
+            <div style={{animation:"fadeup .3s ease",marginTop:10}}>
+              <div style={{background:"var(--bg3)",border:"1px solid var(--b)",
+                borderRadius:10,padding:"12px 14px",marginBottom:10}}>
+                <div style={{fontSize:11,fontWeight:700,color:"var(--a)",marginBottom:8,
+                  letterSpacing:"1px",textTransform:"uppercase"}}>
+                  ✓ Day 1 generated
+                </div>
+                {["fitness","skills","hobbies"].map(mod => {
+                  const s = result.sessions?.[mod];
+                  if (!s) return null;
+                  const cfg = MODULE_CONFIG[mod];
+                  return (
+                    <div key={mod} style={{display:"flex",alignItems:"center",gap:10,
+                      padding:"7px 0",borderBottom:"1px solid var(--b)"}}>
+                      <div style={{fontSize:18}}>{cfg.icon}</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:12,fontWeight:700,color:cfg.color}}>{s.session_name}</div>
+                        <div style={{fontSize:10,color:"var(--m)",fontFamily:"var(--mono)"}}>{s.time_window}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {result.master_brief && (
+                  <div style={{marginTop:10,fontSize:11,color:"var(--m2)",lineHeight:1.65,
+                    borderTop:"1px solid var(--b)",paddingTop:8}}>
+                    <span style={{fontWeight:700,color:"var(--a)"}}>Life Coach: </span>
+                    {result.master_brief.slice(0,220)}{result.master_brief.length>220?"…":""}
+                  </div>
+                )}
               </div>
-              <div style={{fontSize:12,color:"var(--m2)",lineHeight:1.6,marginBottom:10}}>
-                {duplicate}
-              </div>
-              <div style={{fontSize:11,color:"var(--m2)",marginBottom:8}}>
-                Your existing plan is unchanged. Want to regenerate anyway?
-              </div>
-              <div style={{display:"flex",gap:7}}>
-                <button className="btn bs bsm" onClick={()=>setDuplicate(null)}>Keep Existing</button>
-                <button className="btn bp bsm" onClick={forceRegenerate} disabled={loading}>
-                  {loading?<Dots/>:"Regenerate Anyway"}
-                </button>
+              <div style={{fontSize:11,color:"var(--m)",textAlign:"center"}}>
+                Go to Home tab — your sessions are ready.
               </div>
             </div>
           )}
-          <Err msg={err}/>
-
-          {result && (
-            <div style={{marginTop:10}}>
-              <div style={{fontSize:11,color:"var(--a)",fontWeight:700,marginBottom:5}}>
-                ✓ Plan saved — check Fitness → Blueprint
-              </div>
-              <AiBox label="AI note for this week" text={result}/>
-            </div>
+          {result && typeof result === "string" && (
+            <div style={{marginTop:10,fontSize:11,color:"var(--a)",fontWeight:700}}>{result}</div>
           )}
         </div>
 
         <div className="mf">
           <button className="btn bs" onClick={onClose}>Close</button>
           <button className="btn bp" onClick={generate} disabled={!canGenerate||loading}>
-            {loading ? <><Dots/> Generating…</> : "✦ Generate This Week"}
+            {loading ? <><Dots/> Generating all 3 modules…</> : "✦ Generate Day 1"}
           </button>
         </div>
       </div>
